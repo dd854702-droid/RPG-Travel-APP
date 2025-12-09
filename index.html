@@ -5,15 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>名古屋冒險日誌 | Nagoya Adventure Log</title>
     
-    <!-- 1. 載入 Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. Google Fonts -->
+    <!-- 1. Performance Optimization: Preconnect to CDNs -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://esm.sh">
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    
+    <!-- 2. 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 3. Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
 
-    <!-- 3. 設定 Import Map (包含 Firebase) -->
+    <!-- 4. 設定 Import Map (包含 Firebase) -->
     <script type="importmap">
     {
         "imports": {
@@ -27,7 +32,7 @@
     }
     </script>
 
-    <!-- 4. 載入 Babel -->
+    <!-- 5. 載入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -107,14 +112,14 @@
             setDoc, 
             getDoc, 
             onSnapshot,
-            collection 
+            collection,
+            enableIndexedDbPersistence 
         } from 'firebase/firestore';
 
         // --- CONFIGURATION START ---
-        // 1. 若要啟用真正的 Gmail 登入，請將下方改為 true
         const USE_REAL_GOOGLE_AUTH = true; 
 
-        // 2. 請將您的 Firebase Config 貼在下方 (若 USE_REAL_GOOGLE_AUTH 為 true)
+        // 您的 Firebase Config (已填入)
         const userFirebaseConfig = {
             apiKey: "AIzaSyDuVNALTfclUEXxhlDEolTLX_68mkyW59k",
             authDomain: "rpg-travel-app.firebaseapp.com",
@@ -136,6 +141,16 @@
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
+            
+            // --- Performance Optimization: Enable Offline Persistence ---
+            // 啟用離線持久化：資料會快取在裝置上，再次開啟時無需等待網路
+            enableIndexedDbPersistence(db).catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.log('Persistence failed: Multiple tabs open');
+                } else if (err.code == 'unimplemented') {
+                    console.log('Persistence failed: Browser not supported');
+                }
+            });
         } catch (e) {
             console.error("Firebase Init Error:", e);
         }
@@ -149,8 +164,7 @@
             Compass, Search, ArrowRightLeft, Landmark, Star
         };
 
-        // --- GLOBAL CONSTANTS (Defined before App to avoid ReferenceError) ---
-
+        // --- GLOBAL CONSTANTS (Defined before App) ---
         const SPELL_DATA = [
             { icon: "🧅", title: "驅除蔥花", jp: "ネギ抜きでお願いします", zh: "請不要加蔥", type: "defense" },
             { icon: "🧊", title: "去冰咒", jp: "氷なしでお願いします", zh: "請去冰", type: "support" },
@@ -361,7 +375,17 @@
                     try {
                         await signInWithPopup(auth, provider);
                     } catch (error) {
-                        alert("登入失敗: " + error.message);
+                        console.error("Login Error Full:", error);
+                        // 更友善的錯誤提示
+                        if (error.code === 'auth/unauthorized-domain') {
+                            alert(`⛔️ 登入失敗：網域未授權 (Unauthorized Domain)\n\n請到 Firebase Console > Authentication > Settings > Authorized domains\n\n新增此網域：\n${window.location.hostname}`);
+                        } else if (error.code === 'auth/popup-closed-by-user') {
+                            // 使用者自己關閉視窗，不做處理
+                        } else if (error.code === 'auth/popup-blocked') {
+                            alert("⚠️ 登入視窗被瀏覽器攔截，請允許彈跳視窗後重試。");
+                        } else {
+                            alert("登入失敗: " + error.message);
+                        }
                     }
                 } else {
                     await signInAnonymously(auth);
