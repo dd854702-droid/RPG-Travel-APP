@@ -111,11 +111,83 @@
         const INITIAL_CHECKLIST = [ { id: 1, text: "護照", checked: false }, { id: 2, text: "網卡/漫遊", checked: false }, { id: 3, text: "日幣現金", checked: false }, { id: 4, text: "行動電源", checked: false }, { id: 5, text: "常用藥品", checked: false }, { id: 6, text: "VJW截圖", checked: false } ];
         const INITIAL_EXPENSES = [ { id: 1, item: "機票預付", cost: 12000, type: "travel", date: "2025-10-15", method: "card", payer: "me" }, { id: 2, item: "住宿預訂", cost: 8000, type: "save", date: "2025-11-20", method: "card", payer: "me" } ];
         const INITIAL_QUEST_DATA = [
-            { day: 0, title: "序章: 降落與潛入", date: "2026-03-02", stats: { xp: "500 XP", gold: 0, fatigue: "30%" }, events: [{ id: 'e0', time: "16:45", icon: "Plane", title: "啟程: 桃園機場", desc: "搭乘虎航 IT778", type: "start", transportTime: "", transportCost: 0, transportMode: "" }, { id: 'e1', time: "20:25", icon: "MapPin", title: "抵達新地圖", desc: "中部國際機場 T2", type: "checkpoint", transportTime: "3h 40m", transportCost: 0, transportMode: "Plane" }, { id: 'e6', time: "22:40", icon: "Home", title: "存檔點: Trip & Sleep", desc: "辦理入住", type: "save", transportTime: "1h", transportCost: 1250, transportMode: "Train" }] },
-            { day: 1, title: "第一章: 市場與神殿", date: "2026-03-03", stats: { xp: "1200 XP", gold: 0, fatigue: "60%" }, events: [{ id: 'e11', time: "08:00", icon: "Home", title: "冒險開始", desc: "從 Hostel 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "" }, { id: 'e12', time: "08:45", icon: "Utensils", title: "柳橋中央市場", desc: "海鮮巡禮", type: "loot", transportTime: "30m", transportCost: 210, transportMode: "Train" }, { id: 'e13', time: "12:00", icon: "Utensils", title: "午餐: 鳥開総本家", desc: "親子丼", type: "loot", transportTime: "15m", transportCost: 0, transportMode: "Footprints" }, { id: 'e14', time: "13:30", icon: "ShoppingBag", title: "大須商店街", desc: "交易與探索", type: "action", transportTime: "20m", transportCost: 210, transportMode: "Train" }, { id: 'e15', time: "15:30", icon: "Coffee", title: "下午茶: Konparu", desc: "炸蝦三明治", type: "heal", transportTime: "5m", transportCost: 0, transportMode: "Footprints" }, { id: 'e16', time: "18:30", icon: "Utensils", title: "晚餐: 熱田蓬萊軒", desc: "鰻魚飯三吃", type: "boss", transportTime: "30m", transportCost: 270, transportMode: "Train" }, { id: 'e17', time: "20:30", icon: "Home", title: "返回據點", desc: "休息", type: "save", transportTime: "40m", transportCost: 270, transportMode: "Train" }] },
-            { day: 2, title: "第二章: 古城與咖啡", date: "2026-03-04", stats: { xp: "1500 XP", gold: 0, fatigue: "75%" }, events: [{ id: 'e20', time: "07:45", icon: "Home", title: "早安名古屋", desc: "出發", type: "start", transportTime: "", transportCost: 0, transportMode: "" }, { id: 'e21', time: "08:00", icon: "Coffee", title: "早餐: Bucyo Coffee", desc: "小倉紅豆吐司", type: "heal", transportTime: "15m", transportCost: 0, transportMode: "Footprints" }, { id: 'e22', time: "10:00", icon: "MapPin", title: "犬山城", desc: "國寶天守閣", type: "dungeon", transportTime: "50m", transportCost: 600, transportMode: "Train" }, { id: 'e23', time: "12:30", icon: "Utensils", title: "午餐: Sakura Chaya", desc: "田樂烤豆腐", type: "loot", transportTime: "10m", transportCost: 0, transportMode: "Footprints" }, { id: 'e24', time: "15:00", icon: "Coffee", title: "GOLPIE COFFEE", desc: "冠軍咖啡", type: "action", transportTime: "1h 20m", transportCost: 800, transportMode: "Train" }, { id: 'e25', time: "18:00", icon: "Utensils", title: "Solo Pizza", desc: "冠軍披薩", type: "loot", transportTime: "30m", transportCost: 240, transportMode: "Train" }, { id: 'e26', time: "20:00", icon: "Home", title: "返回據點", desc: "休息", type: "save", transportTime: "15m", transportCost: 0, transportMode: "Footprints" }] },
-            { day: 3, title: "第三章: 將軍的榮耀", date: "2026-03-05", stats: { xp: "1800 XP", gold: 0, fatigue: "85%" }, events: [{ id: 'e30', time: "07:45", icon: "Home", title: "早安名古屋", desc: "出發", type: "start", transportTime: "", transportCost: 0, transportMode: "" }, { id: 'e31', time: "08:00", icon: "Coffee", title: "早餐: Karasu", desc: "老派咖啡廳", type: "heal", transportTime: "15m", transportCost: 210, transportMode: "Train" }, { id: 'e32', time: "09:30", icon: "MapPin", title: "名古屋城", desc: "金鯱與本丸御殿", type: "dungeon", transportTime: "20m", transportCost: 210, transportMode: "Bus" }, { id: 'e33', time: "11:30", icon: "Camera", title: "德川園", desc: "日式庭園", type: "action", transportTime: "30m", transportCost: 210, transportMode: "Bus" }, { id: 'e34', time: "13:00", icon: "Utensils", title: "午餐: Yellow", desc: "歐姆蛋包飯", type: "loot", transportTime: "30m", transportCost: 210, transportMode: "Bus" }, { id: 'e35', time: "15:00", icon: "ShoppingBag", title: "榮 (Sakae)", desc: "購物", type: "trade", transportTime: "20m", transportCost: 210, transportMode: "Train" }, { id: 'e36', time: "18:00", icon: "Utensils", title: "晚餐: 海老どて", desc: "特大炸蝦", type: "boss", transportTime: "10m", transportCost: 0, transportMode: "Footprints" }, { id: 'e37', time: "20:00", icon: "Home", title: "返回據點", desc: "休息", type: "save", transportTime: "15m", transportCost: 210, transportMode: "Train" }] },
-            { day: 4, title: "終章: 歸途", date: "2026-03-06", stats: { xp: "2000 XP", gold: 0, fatigue: "99%" }, events: [{ id: 'e41', time: "09:40", icon: "Home", title: "退房", desc: "前往機場", type: "start", transportTime: "", transportCost: 0, transportMode: "" }, { id: 'e42', time: "09:50", icon: "Train", title: "地下鐵移動", desc: "上前津 -> 金山", type: "travel", transportTime: "10m", transportCost: 210, transportMode: "Train" }, { id: 'e43', time: "10:18", icon: "Train", title: "名鐵特急 μ-SKY", desc: "金山 -> 機場", type: "travel", transportTime: "28m", transportCost: 1250, transportMode: "Train" }, { id: 'e44', time: "10:50", icon: "MapPin", title: "抵達機場 T1", desc: "前往交通廣場", type: "checkpoint", transportTime: "5m", transportCost: 0, transportMode: "Footprints" }, { id: 'e45', time: "11:05", icon: "Footprints", title: "步行至 T2", desc: "長距離移動", type: "move", transportTime: "15m", transportCost: 0, transportMode: "Footprints" }, { id: 'e46', time: "11:05", icon: "Plane", title: "報到 & 託運", desc: "IT779 (13:15)", type: "action", transportTime: "0m", transportCost: 0, transportMode: "" }, { id: 'e47', time: "13:15", icon: "Plane", title: "返航: IT779", desc: "飛往桃園", type: "travel", transportTime: "", transportCost: 0, transportMode: "Plane" }, { id: 'e48', time: "15:25", icon: "Home", title: "Mission Complete", desc: "任務結束", type: "end", transportTime: "3h 10m", transportCost: 0, transportMode: "Plane" }] }
+            {
+                day: 0,
+                title: "序章: 降落與潛入",
+                date: "2026-03-02",
+                stats: { xp: "500 XP", gold: 0, fatigue: "30%" }, 
+                events: [
+                { id: 'e0', time: "16:45", icon: "Plane", title: "啟程: 桃園機場", desc: "搭乘虎航 IT778 (16:45-20:25)", type: "start", transportTime: "", transportCost: 0, transportMode: "" },
+                { id: 'e1', time: "20:25", icon: "MapPin", title: "抵達新地圖", desc: "中部國際機場 T2", type: "checkpoint", transportTime: "3h 40m", transportCost: 0, transportMode: "Plane" },
+                { id: 'e2', time: "21:15", icon: "Footprints", title: "穿越通道", desc: "前往交通廣場", type: "move", transportTime: "15m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e3', time: "21:37", icon: "Train", title: "搭乘名鐵特急", desc: "往名古屋/岐阜方向", type: "travel", transportTime: "10m", transportCost: 1250, transportMode: "Train" },
+                { id: 'e4', time: "22:08", icon: "MapPin", title: "抵達金山站", desc: "關鍵轉乘點", type: "checkpoint", transportTime: "31m", transportCost: 0, transportMode: "Train" },
+                { id: 'e5', time: "22:23", icon: "Train", title: "轉乘地下鐵", desc: "名城線 (右環)", type: "travel", transportTime: "15m", transportCost: 210, transportMode: "Train" },
+                { id: 'e6', time: "22:40", icon: "Home", title: "存檔點: Trip & Sleep", desc: "辦理入住", type: "save", transportTime: "10m", transportCost: 0, transportMode: "Footprints" },
+                ]
+            },
+            {
+                day: 1,
+                title: "第一章: 市場與神殿",
+                date: "2026-03-03",
+                stats: { xp: "1200 XP", gold: 0, fatigue: "60%" },
+                events: [
+                { id: 'e11', time: "08:00", icon: "Home", title: "冒險開始", desc: "從 Trip & Sleep hostel 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "" },
+                { id: 'e12', time: "08:45", icon: "Utensils", title: "柳橋中央市場", desc: "補給: 生魚片、海鮮巡禮", type: "loot", transportTime: "30m", transportCost: 210, transportMode: "Train" },
+                { id: 'e13', time: "12:00", icon: "Utensils", title: "午餐: 鳥開総本家", desc: "獲得物品: 金賞親子丼", type: "loot", transportTime: "15m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e14', time: "13:30", icon: "ShoppingBag", title: "大須商店街", desc: "交易與探索 (約2小時)", type: "action", transportTime: "20m", transportCost: 210, transportMode: "Train" },
+                { id: 'e15', time: "15:30", icon: "Coffee", title: "下午茶: Konparu", desc: "補給: 炸蝦三明治", type: "heal", transportTime: "5m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e16', time: "18:30", icon: "Utensils", title: "晚餐: 熱田蓬萊軒", desc: "挑戰傳說美食: 鰻魚飯三吃", type: "boss", transportTime: "30m", transportCost: 270, transportMode: "Train" },
+                { id: 'e17', time: "20:30", icon: "Home", title: "返回據點", desc: "回到 Trip & Sleep hostel 休息", type: "save", transportTime: "40m", transportCost: 270, transportMode: "Train" },
+                ]
+            },
+            {
+                day: 2,
+                title: "第二章: 古城與咖啡",
+                date: "2026-03-04",
+                stats: { xp: "1500 XP", gold: 0, fatigue: "75%" },
+                events: [
+                { id: 'e20', time: "07:45", icon: "Home", title: "早安名古屋", desc: "從 Trip & Sleep hostel 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "" },
+                { id: 'e21', time: "08:00", icon: "Coffee", title: "早餐: Bucyo Coffee", desc: "補給: 小倉紅豆吐司", type: "heal", transportTime: "15m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e22', time: "10:00", icon: "MapPin", title: "犬山城攻略", desc: "國寶天守閣 (門票 ¥550)", type: "dungeon", transportTime: "50m", transportCost: 600, transportMode: "Train" },
+                { id: 'e23', time: "12:30", icon: "Utensils", title: "午餐: Sakura Chaya", desc: "獲得物品: 田樂烤豆腐串", type: "loot", transportTime: "10m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e24', time: "15:00", icon: "Coffee", title: "GOLPIE COFFEE", desc: "川名山冠軍咖啡巡禮", type: "action", transportTime: "1h 20m", transportCost: 800, transportMode: "Train" },
+                { id: 'e25', time: "18:00", icon: "Utensils", title: "Solo Pizza", desc: "大須本店 (世界冠軍披薩)", type: "loot", transportTime: "30m", transportCost: 240, transportMode: "Train" },
+                { id: 'e26', time: "20:00", icon: "Home", title: "返回據點", desc: "回到 Trip & Sleep hostel 休息", type: "save", transportTime: "15m", transportCost: 0, transportMode: "Footprints" },
+                ]
+            },
+            {
+                day: 3,
+                title: "第三章: 將軍的榮耀",
+                date: "2026-03-05",
+                stats: { xp: "1800 XP", gold: 0, fatigue: "85%" },
+                events: [
+                { id: 'e30', time: "07:45", icon: "Home", title: "早安名古屋", desc: "從 Trip & Sleep hostel 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "" },
+                { id: 'e31', time: "08:00", icon: "Coffee", title: "早餐: Karasu", desc: "孤獨的美食家咖啡廳", type: "heal", transportTime: "15m", transportCost: 210, transportMode: "Train" },
+                { id: 'e32', time: "09:30", icon: "MapPin", title: "名古屋城", desc: "金鯱與本丸御殿 (門票 ¥500)", type: "dungeon", transportTime: "20m", transportCost: 210, transportMode: "Bus" },
+                { id: 'e33', time: "11:30", icon: "Camera", title: "德川園", desc: "日式庭園散步 (門票 ¥300)", type: "action", transportTime: "30m", transportCost: 210, transportMode: "Bus" },
+                { id: 'e34', time: "13:00", icon: "Utensils", title: "午餐: Yellow", desc: "則武新町 濃厚歐姆蛋包飯", type: "loot", transportTime: "30m", transportCost: 210, transportMode: "Bus" },
+                { id: 'e35', time: "15:00", icon: "ShoppingBag", title: "榮 (Sakae)", desc: "LACHIC, 中日大樓 購物", type: "trade", transportTime: "20m", transportCost: 210, transportMode: "Train" },
+                { id: 'e36', time: "18:00", icon: "Utensils", title: "晚餐: 海老どて", desc: "挑戰: 35cm 特大炸蝦", type: "boss", transportTime: "10m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e37', time: "20:00", icon: "Home", title: "返回據點", desc: "回到 Trip & Sleep hostel 休息", type: "save", transportTime: "15m", transportCost: 210, transportMode: "Train" },
+                ]
+            },
+            {
+                day: 4,
+                title: "終章: 歸途",
+                date: "2026-03-06",
+                stats: { xp: "2000 XP", gold: 0, fatigue: "99%" },
+                events: [
+                { id: 'e41', time: "09:40", icon: "Home", title: "旅店退房", desc: "告別 Trip & Sleep hostel，前往機場", type: "start", transportTime: "", transportCost: 0, transportMode: "" },
+                { id: 'e42', time: "09:50", icon: "Train", title: "地下鐵移動", desc: "上前津 (M03) -> 金山 (M01)", type: "travel", transportTime: "10m", transportCost: 210, transportMode: "Train" },
+                { id: 'e43', time: "10:18", icon: "Train", title: "名鐵特急 μ-SKY", desc: "金山站 -> 中部國際機場", type: "travel", transportTime: "28m", transportCost: 1250, transportMode: "Train" },
+                { id: 'e44', time: "10:50", icon: "MapPin", title: "抵達機場 T1", desc: "前往交通廣場", type: "checkpoint", transportTime: "5m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e45', time: "11:05", icon: "Footprints", title: "步行至 T2", desc: "長距離移動 (10-15分)", type: "move", transportTime: "15m", transportCost: 0, transportMode: "Footprints" },
+                { id: 'e46', time: "11:05", icon: "Plane", title: "報到 & 託運", desc: "虎航櫃檯 IT779 (13:15 起飛)", type: "action", transportTime: "0m", transportCost: 0, transportMode: "" },
+                { id: 'e47', time: "13:15", icon: "Plane", title: "返航: IT779", desc: "飛往桃園機場 (13:15-15:25)", type: "travel", transportTime: "", transportCost: 0, transportMode: "Plane" },
+                { id: 'e48', time: "15:25", icon: "Home", title: "Mission Complete", desc: "抵達桃園機場，任務結束", type: "end", transportTime: "3h 10m", transportCost: 0, transportMode: "Plane" },
+                ]
+            }
         ];
 
         const EXPENSE_TYPES = [ { id: 'loot', label: '美食', color: 'bg-yellow-600 text-yellow-100', border: 'border-yellow-500' }, { id: 'travel', label: '交通', color: 'bg-blue-600 text-blue-100', border: 'border-blue-500' }, { id: 'save', label: '住宿', color: 'bg-green-600 text-green-100', border: 'border-green-500' }, { id: 'trade', label: '購物', color: 'bg-pink-300 text-pink-900', border: 'border-pink-300' }, { id: 'other', label: '其他', color: 'bg-slate-600 text-slate-100', border: 'border-slate-500' } ];
