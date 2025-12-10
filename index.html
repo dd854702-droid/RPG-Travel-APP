@@ -20,6 +20,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: { slate: { 850: '#151e32', 900: '#0f172a' } },
@@ -41,6 +42,7 @@
             "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
             "lucide-react": "https://esm.sh/lucide-react@0.263.1",
             "canvas-confetti": "https://esm.sh/canvas-confetti@1.6.0",
+            "html2canvas": "https://esm.sh/html2canvas@1.4.1",
             "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
             "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js",
             "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"
@@ -52,8 +54,24 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        :root { --bg-dark: #0f172a; --text-main: #e2e8f0; }
-        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+        :root {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #334155;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+        .light-mode {
+            --bg-main: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-input: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #cbd5e1;
+        }
+        
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; transition: background-color 0.3s, color 0.3s; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -61,7 +79,7 @@
         .ticket-edge { mask-image: radial-gradient(circle at center, transparent 10px, black 11px); mask-position: -10px 50%; mask-size: 100% 200%; mask-repeat: no-repeat; }
         /* Markdown-like link style */
         .desc-link { color: #60a5fa; text-decoration: underline; text-underline-offset: 2px; }
-        .hp-bar-container { background: #334155; border-radius: 4px; height: 12px; overflow: hidden; border: 1px solid #475569; }
+        .hp-bar-container { background: var(--bg-input); border-radius: 4px; height: 12px; overflow: hidden; border: 1px solid var(--border-color); }
         .hp-bar-fill { height: 100%; transition: width 0.5s ease-out, background-color 0.3s; }
         .stamp-mark {
             border: 3px double currentColor;
@@ -80,6 +98,10 @@
             position: relative;
             overflow: hidden;
         }
+        .light-mode .guild-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+            border: 2px solid #d97706;
+        }
         .guild-card::before {
             content: "";
             position: absolute;
@@ -91,6 +113,10 @@
             animation: shine 10s infinite linear;
         }
         @keyframes shine { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        /* Drag and Drop Styling */
+        .dragging { opacity: 0.5; transform: scale(0.98); }
+        .drag-over { border-top: 2px solid #fbbf24; }
     </style>
 </head>
 <body>
@@ -100,6 +126,7 @@
         import React, { useState, useEffect, useMemo, useRef, useContext, createContext, useCallback } from 'react';
         import { createRoot } from 'react-dom/client';
         import confetti from 'canvas-confetti';
+        import html2canvas from 'html2canvas';
         import { 
             Plane, Train, MapPin, Coffee, Utensils, ShoppingBag, Home, Footprints, Camera, ArrowDown, 
             Coins, BookOpen, Scroll, Info, Shield, Zap, Cloud, Calendar, CheckSquare, X, ZoomIn, PlusCircle,
@@ -108,7 +135,7 @@
             Compass, Search, ArrowRightLeft, Landmark, LogOut, User, Star, Check, FileText, CreditCard, Wallet, Users,
             CloudRain, CloudSun, Sun, Share2, Copy, RotateCcw, ScanLine, Calculator, Link as LinkIcon, WifiOff,
             Umbrella, Wind, Snowflake, Flame, Activity, Banknote, HelpCircle, Mic, Plus, Award, Filter, CheckCircle2,
-            Crown, QrCode
+            Crown, QrCode, SunMoon, GripVertical, Download, Settings, Key
         } from 'lucide-react';
         
         import { initializeApp } from 'firebase/app';
@@ -278,11 +305,11 @@
 
         // Helper: Call Gemini
         const callGeminiAPI = async (prompt, imageBase64 = null) => {
-             const apiKey = ""; // Set API Key
+             // Retrieve API Key from LocalStorage
+             const apiKey = localStorage.getItem('gemini_api_key') || "";
              
-             // Graceful degradation if API key is missing
              if (!apiKey) {
-                 return "魔力不足: 請設定 API Key (Mock Result)";
+                 return "魔力不足: 請先至「資訊」頁面設定 Gemini API Key。";
              }
              
              const payload = {
@@ -301,16 +328,16 @@
                      body: JSON.stringify(payload)
                  });
                  const data = await response.json();
+                 if (data.error) throw new Error(data.error.message);
                  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
              } catch (e) {
-                 throw new Error("連線失敗");
+                 return `詠唱失敗: ${e.message}`;
              }
         };
 
         // --- Hook with Offline Support & LocalStorage Backup ---
         function useFirestoreData(user, tripId, collectionName, initialData, isObject = false) {
             const [data, setData] = useState(() => {
-                // Initial Load: Try LocalStorage first (Offline support)
                 const cached = localStorage.getItem(`${tripId}_${collectionName}`);
                 return cached ? JSON.parse(cached) : initialData;
             });
@@ -331,7 +358,7 @@
                     if (docSnap.exists()) {
                         const cloudData = isObject ? docSnap.data() : docSnap.data().items;
                         setData(cloudData);
-                        localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(cloudData)); // Backup to local
+                        localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(cloudData)); 
                     } else {
                         setDoc(docRef, isObject ? initialData : { items: initialData }).catch(e => console.error("Init data failed", e));
                     }
@@ -344,7 +371,7 @@
 
             const updateData = (newData) => {
                 setData(newData);
-                localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(newData)); // Optimistic update local
+                localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(newData)); 
                 
                 if (!user || !tripId) return;
                 let docRef;
@@ -355,7 +382,12 @@
                 }
                 
                 setDoc(docRef, isObject ? newData : { items: newData }).catch(e => {
-                    console.error("Cloud save failed, using local", e);
+                    // Safety Guard: Fallback for large payloads
+                    if (e.code === 'resource-exhausted' || e.message.includes('exceeds the maximum')) {
+                        alert("⚠️ 雲端空間不足 (圖片可能過大)。資料已保存於本地，但無法同步給他人。");
+                    } else {
+                        console.error("Cloud save failed, using local", e);
+                    }
                 });
             };
             return [data, updateData, isOffline];
@@ -367,7 +399,7 @@
         );
 
         const QuestView = () => {
-            const { quests, setQuests, activeLevel, setActiveLevel, countdown, weatherForecast, stats, setExpenses, expenses, exchangeRate } = useContext(AppContext);
+            const { quests, setQuests, activeLevel, setActiveLevel, countdown, weatherForecast, stats, setExpenses, expenses } = useContext(AppContext);
             const [isAddingEvent, setIsAddingEvent] = useState(false);
             const [isEditing, setIsEditing] = useState(false);
             const [editingId, setEditingId] = useState(null);
@@ -380,7 +412,6 @@
                 const reader = new FileReader(); reader.onload = (ev) => {
                     const img = new Image(); img.onload = () => {
                         const c = document.createElement('canvas'); const ctx = c.getContext('2d'); 
-                        // Compress Image (Resized to 600px width, 0.4 quality)
                         const s = 600/img.width; 
                         c.width=Math.min(img.width, 600); 
                         c.height=img.height*s; 
@@ -391,6 +422,59 @@
                 }; reader.readAsDataURL(file); e.target.value='';
             };
             
+            // Drag & Drop Handlers
+            const handleDragStart = (e, index) => {
+                e.dataTransfer.setData("text/plain", index);
+                e.dataTransfer.effectAllowed = "move";
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+            };
+
+            const handleDrop = (e, dropIndex) => {
+                e.preventDefault();
+                const dragIndex = parseInt(e.dataTransfer.getData("text/plain"));
+                if (dragIndex === dropIndex) return;
+
+                const newQuests = [...quests];
+                const events = [...newQuests[activeLevel].events];
+                const [movedEvent] = events.splice(dragIndex, 1);
+                events.splice(dropIndex, 0, movedEvent);
+                
+                newQuests[activeLevel].events = events;
+                setQuests(newQuests);
+            };
+
+            // Export to Image
+            const exportItinerary = async () => {
+                const element = document.getElementById('quest-container');
+                if(!element) return;
+                try {
+                    const canvas = await html2canvas(element, { backgroundColor: '#0f172a', scale: 2 });
+                    const link = document.createElement('a');
+                    link.download = `Day${activeLevel}_Itinerary.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                } catch (err) {
+                    alert("匯出失敗");
+                    console.error(err);
+                }
+            };
+            
+            // Route Map Link Generator
+            const openRouteMap = () => {
+                const events = quests[activeLevel].events;
+                if (events.length < 2) return alert("行程過少，無法產生路線圖");
+                
+                // Limit to 10 waypoints (Google Maps limitation)
+                const origin = encodeURIComponent(events[0].title);
+                const destination = encodeURIComponent(events[events.length-1].title);
+                const waypoints = events.slice(1, -1).map(e => encodeURIComponent(e.title)).join('|');
+                
+                window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}`, '_blank');
+            };
+
             // Edit Event Logic
             const openEditModal = (ev) => {
                 setNewEventData({
@@ -421,7 +505,7 @@
                     const idx = newQuests[activeLevel].events.findIndex(e => e.id === editingId);
                     if (idx > -1) {
                         eventPayload.id = editingId;
-                        eventPayload.image = newQuests[activeLevel].events[idx].image; // Preserve image
+                        eventPayload.image = newQuests[activeLevel].events[idx].image; 
                         newQuests[activeLevel].events[idx] = eventPayload;
                     }
                 } else {
@@ -429,7 +513,11 @@
                     newQuests[activeLevel].events.push(eventPayload);
                 }
                 
-                newQuests[activeLevel].events.sort((a,b)=>a.time.localeCompare(b.time));
+                // Only sort if not dragged (simple logic: sort on save if added new)
+                if (!isEditing) {
+                    newQuests[activeLevel].events.sort((a,b)=>a.time.localeCompare(b.time));
+                }
+                
                 setQuests(newQuests); 
                 setIsAddingEvent(false);
                 setIsEditing(false);
@@ -485,78 +573,95 @@
                     
                     {/* Dynamic Stats Header */}
                     <div className="grid grid-cols-3 gap-2 mb-4">
-                        <div className="bg-slate-800 p-2 rounded border border-yellow-600/50 flex flex-col items-center">
+                        <div className="bg-[var(--bg-card)] p-2 rounded border border-yellow-600/50 flex flex-col items-center">
                             <span className="text-[10px] text-yellow-500 font-bold">LV. {Math.floor(stats.xp/1000)+1}</span>
-                            <span className="text-lg font-bold text-white">{stats.xp} XP</span>
+                            <span className="text-lg font-bold text-[var(--text-main)]">{stats.xp} XP</span>
                         </div>
-                         <div className="bg-slate-800 p-2 rounded border border-blue-600/50 flex flex-col items-center">
+                         <div className="bg-[var(--bg-card)] p-2 rounded border border-blue-600/50 flex flex-col items-center">
                             <span className="text-[10px] text-blue-500 font-bold">FATIGUE</span>
-                            <span className="text-lg font-bold text-white">{stats.fatigue}%</span>
+                            <span className="text-lg font-bold text-[var(--text-main)]">{stats.fatigue}%</span>
                         </div>
-                        <div className="bg-slate-800 p-2 rounded border border-green-600/50 flex flex-col items-center">
+                        <div className="bg-[var(--bg-card)] p-2 rounded border border-green-600/50 flex flex-col items-center">
                             <span className="text-[10px] text-green-500 font-bold">GOLD</span>
-                            <span className="text-lg font-bold text-white">¥{stats.goldRemaining.toLocaleString()}</span>
+                            <span className="text-lg font-bold text-[var(--text-main)]">¥{stats.goldRemaining.toLocaleString()}</span>
                         </div>
                     </div>
 
-                    <div className="flex w-full overflow-x-auto gap-2 mb-6 pb-2 no-scrollbar px-1">{quests.map((q, i) => (<button key={i} onClick={() => setActiveLevel(i)} className={`flex-shrink-0 px-4 py-2 border-2 text-xs font-bold whitespace-nowrap rounded-sm ${activeLevel === i ? "bg-blue-600 border-blue-400 text-white" : "bg-slate-800 border-slate-600 text-slate-400"}`}>{i===0?"序章":i===4?"終章":`Day ${i}`}</button>))}</div>
-                    <div className="w-full bg-slate-800 border-2 border-slate-600 p-4 mb-6 rounded-sm relative overflow-hidden">
-                        <div className="flex justify-between items-start"><h2 className="text-xl font-bold text-green-400 mb-1">{quests[activeLevel].title}</h2></div>
-                        <div className="text-sm text-slate-400 mb-4 flex justify-between items-center"><span className="flex items-center gap-2"><Calendar size={12}/> {quests[activeLevel].date} {weather.max && <span className="flex items-center gap-1 text-yellow-300 ml-2"><WeatherIcon size={14}/> {weather.min}°-{weather.max}°</span>}</span><span className="text-blue-400 font-mono text-xs">T-{countdown}</span></div>
-                    </div>
-                    <div className="w-full relative pl-4">
-                        <div className="absolute left-[27px] top-4 bottom-4 w-1 bg-slate-700 z-0"></div>
-                        {quests[activeLevel].events.map((ev, idx) => {
-                            const IconC = ICON_MAP[ev.icon] || MapPin; const ModeIcon = ICON_MAP[ev.transportMode] || Footprints;
-                            return (
-                                <div key={ev.id} className={`relative z-10 mb-6 group transition-all duration-300 ${ev.completed ? 'opacity-50 grayscale' : ''}`}>
-                                    {(ev.transportTime || ev.transportCost > 0) && (
-                                        <div className="flex items-center ml-[19px] mb-3 relative">
-                                            <div className="w-2 h-2 bg-slate-600 rounded-full border-2 border-slate-900 z-20"></div>
-                                            <div className="ml-4 flex items-center gap-2 text-[10px] text-slate-400 bg-slate-900/90 px-2 py-1 rounded border border-slate-700">
-                                                <ModeIcon size={12}/> 
-                                                {ev.transportTime} 
-                                                {ev.transportCost > 0 && <span className="text-yellow-500 font-mono">¥{ev.transportCost}</span>}
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="flex items-start">
-                                        <div onClick={()=>toggleComplete(ev.id)} className={`cursor-pointer w-12 h-12 flex-shrink-0 rounded-lg border-2 flex items-center justify-center shadow-lg z-10 transition-colors ${ev.completed ? 'bg-green-900 border-green-500 text-green-300' : 'bg-slate-900 border-slate-500 text-slate-400'}`}>
-                                            {ev.completed ? <Check size={20}/> : <IconC size={20}/>}
-                                        </div>
-                                        <div className="ml-4 flex-1 border-2 border-slate-600 bg-slate-800/50 p-3 rounded-lg relative hover:bg-slate-800 transition-colors">
-                                            <div className="absolute top-4 -left-2 w-3 h-3 border-l-2 border-b-2 border-inherit bg-slate-900 transform rotate-45"></div>
-                                            <div className="flex justify-between mb-1">
-                                                <span className="font-bold text-sm">{ev.title}</span>
-                                                <span className="text-xs font-mono opacity-50">{ev.time}</span>
-                                            </div>
-                                            <p className="text-xs opacity-70 mb-2 leading-relaxed"><LinkifyText text={ev.desc}/></p>
-                                            {ev.tags && <div className="flex gap-1 mb-2">{ev.tags.map(t=><span key={t} className="text-[9px] bg-blue-900 text-blue-200 px-1 rounded">#{t}</span>)}</div>}
-                                            {ev.image && <img src={ev.image} className="w-full h-32 object-cover rounded border border-slate-700 mb-2"/>}
-                                            
-                                            {/* Action Bar */}
-                                            <div className="flex justify-between items-center mt-2 border-t border-slate-700/50 pt-2">
-                                                <div className="flex gap-2">
-                                                    {ev.transportCost > 0 && (
-                                                        <button onClick={()=>syncToExpense(ev)} className="text-xs text-yellow-500 flex items-center gap-1 hover:text-yellow-300 bg-yellow-900/20 px-2 py-0.5 rounded border border-yellow-800" title="轉入記帳">
-                                                            <Coins size={10}/> ¥{ev.transportCost}
-                                                        </button>
-                                                    )}
+                    <div className="flex w-full overflow-x-auto gap-2 mb-6 pb-2 no-scrollbar px-1">{quests.map((q, i) => (<button key={i} onClick={() => setActiveLevel(i)} className={`flex-shrink-0 px-4 py-2 border-2 text-xs font-bold whitespace-nowrap rounded-sm ${activeLevel === i ? "bg-blue-600 border-blue-400 text-white" : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)]"}`}>{i===0?"序章":i===4?"終章":`Day ${i}`}</button>))}</div>
+                    
+                    <div id="quest-container" className="relative">
+                        <div className="w-full bg-[var(--bg-card)] border-2 border-[var(--border-color)] p-4 mb-6 rounded-sm relative overflow-hidden">
+                            <div className="flex justify-between items-start">
+                                <h2 className="text-xl font-bold text-green-400 mb-1">{quests[activeLevel].title}</h2>
+                                <div className="flex gap-2">
+                                    <button onClick={openRouteMap} className="text-xs text-blue-400 hover:text-white flex items-center gap-1"><Map size={14}/> 路線</button>
+                                    <button onClick={exportItinerary} className="text-xs text-slate-400 hover:text-white flex items-center gap-1"><Camera size={14}/> 截圖</button>
+                                </div>
+                            </div>
+                            <div className="text-sm text-[var(--text-muted)] mb-4 flex justify-between items-center"><span className="flex items-center gap-2"><Calendar size={12}/> {quests[activeLevel].date} {weather.max && <span className="flex items-center gap-1 text-yellow-500 ml-2"><WeatherIcon size={14}/> {weather.min}°-{weather.max}°</span>}</span><span className="text-blue-400 font-mono text-xs">T-{countdown}</span></div>
+                        </div>
+                        <div className="w-full relative pl-4">
+                            <div className="absolute left-[27px] top-4 bottom-4 w-1 bg-slate-700 z-0"></div>
+                            {quests[activeLevel].events.map((ev, idx) => {
+                                const IconC = ICON_MAP[ev.icon] || MapPin; const ModeIcon = ICON_MAP[ev.transportMode] || Footprints;
+                                return (
+                                    <div 
+                                        key={ev.id} 
+                                        draggable="true"
+                                        onDragStart={(e) => handleDragStart(e, idx)}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, idx)}
+                                        className={`relative z-10 mb-6 group transition-all duration-300 ${ev.completed ? 'opacity-50 grayscale' : ''} cursor-grab active:cursor-grabbing`}
+                                    >
+                                        {(ev.transportTime || ev.transportCost > 0) && (
+                                            <div className="flex items-center ml-[19px] mb-3 relative">
+                                                <div className="w-2 h-2 bg-slate-600 rounded-full border-2 border-slate-900 z-20"></div>
+                                                <div className="ml-4 flex items-center gap-2 text-[10px] text-slate-400 bg-[var(--bg-card)]/90 px-2 py-1 rounded border border-[var(--border-color)]">
+                                                    <ModeIcon size={12}/> 
+                                                    {ev.transportTime} 
+                                                    {ev.transportCost > 0 && <span className="text-yellow-500 font-mono">¥{ev.transportCost}</span>}
                                                 </div>
-                                                <div className="flex gap-3">
-                                                    <button onClick={()=>openMap(ev.title)} className="text-xs text-blue-400 flex items-center gap-1 hover:text-white"><MapPin size={12}/> 導航</button>
-                                                    <button onClick={()=>openEditModal(ev)} className="text-xs text-slate-400 flex items-center gap-1 hover:text-white"><Edit size={12}/> 編輯</button>
-                                                    <button onClick={()=>triggerImageUpload(ev.id)} className="text-xs text-slate-400 flex items-center gap-1 hover:text-white"><ImageIcon size={12}/> 照片</button>
-                                                    <button onClick={()=>deleteEvent(ev.id)} className="text-xs text-red-400 flex items-center gap-1 hover:text-red-300"><Trash2 size={12}/> 刪除</button>
+                                            </div>
+                                        )}
+                                        <div className="flex items-start">
+                                            <div className="mr-2 mt-4 text-slate-600 opacity-0 group-hover:opacity-50"><GripVertical size={16}/></div>
+                                            <div onClick={()=>toggleComplete(ev.id)} className={`cursor-pointer w-12 h-12 flex-shrink-0 rounded-lg border-2 flex items-center justify-center shadow-lg z-10 transition-colors ${ev.completed ? 'bg-green-900 border-green-500 text-green-300' : 'bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)]'}`}>
+                                                {ev.completed ? <Check size={20}/> : <IconC size={20}/>}
+                                            </div>
+                                            <div className="ml-4 flex-1 border-2 border-[var(--border-color)] bg-[var(--bg-card)]/50 p-3 rounded-lg relative hover:bg-[var(--bg-card)] transition-colors">
+                                                <div className="absolute top-4 -left-2 w-3 h-3 border-l-2 border-b-2 border-inherit bg-[var(--bg-card)] transform rotate-45"></div>
+                                                <div className="flex justify-between mb-1">
+                                                    <span className="font-bold text-sm text-[var(--text-main)]">{ev.title}</span>
+                                                    <span className="text-xs font-mono opacity-50 text-[var(--text-muted)]">{ev.time}</span>
+                                                </div>
+                                                <p className="text-xs opacity-70 mb-2 leading-relaxed text-[var(--text-main)]"><LinkifyText text={ev.desc}/></p>
+                                                {ev.tags && <div className="flex gap-1 mb-2">{ev.tags.map(t=><span key={t} className="text-[9px] bg-blue-900 text-blue-200 px-1 rounded">#{t}</span>)}</div>}
+                                                {ev.image && <img src={ev.image} className="w-full h-32 object-cover rounded border border-slate-700 mb-2"/>}
+                                                
+                                                {/* Action Bar */}
+                                                <div className="flex justify-between items-center mt-2 border-t border-[var(--border-color)] pt-2">
+                                                    <div className="flex gap-2">
+                                                        {ev.transportCost > 0 && (
+                                                            <button onClick={()=>syncToExpense(ev)} className="text-xs text-yellow-500 flex items-center gap-1 hover:text-yellow-300 bg-yellow-900/20 px-2 py-0.5 rounded border border-yellow-800" title="轉入記帳">
+                                                                <Coins size={10}/> ¥{ev.transportCost}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex gap-3">
+                                                        <button onClick={()=>openMap(ev.title)} className="text-xs text-blue-400 flex items-center gap-1 hover:text-blue-300"><MapPin size={12}/> 導航</button>
+                                                        <button onClick={()=>openEditModal(ev)} className="text-xs text-slate-400 flex items-center gap-1 hover:text-[var(--text-main)]"><Edit size={12}/> 編輯</button>
+                                                        <button onClick={()=>triggerImageUpload(ev.id)} className="text-xs text-slate-400 flex items-center gap-1 hover:text-[var(--text-main)]"><ImageIcon size={12}/> 照片</button>
+                                                        <button onClick={()=>deleteEvent(ev.id)} className="text-xs text-red-400 flex items-center gap-1 hover:text-red-300"><Trash2 size={12}/> 刪除</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )
-                        })}
-                        <div className="relative z-10 mt-4 mb-10 pl-16"><button onClick={() => { setIsEditing(false); setIsAddingEvent(true); setNewEventData({ time: "10:00", title: "", desc: "", type: "action", locationQuery: "", transportTime: "", transportCost: "", transportMode: "Footprints", tags: "", completed: false }); }} className="w-full border-2 border-dashed border-slate-600 text-slate-500 rounded-lg p-3 hover:text-white"><PlusCircle className="inline mr-2"/>新增行程</button></div>
-                        <div className="ml-4 mt-8 bg-slate-900 border border-slate-700 p-3 rounded"><h4 className="text-xs text-blue-400 mb-2 font-bold flex items-center gap-2"><FileText size={12}/> 冒險日記 (Journal)</h4><textarea className="w-full bg-transparent text-sm text-white outline-none resize-none h-24" placeholder="今天發生了什麼趣事..." value={quests[activeLevel].note||""} onChange={(e)=>updateNote(e.target.value)}></textarea></div>
+                                )
+                            })}
+                            <div className="relative z-10 mt-4 mb-10 pl-16"><button onClick={() => { setIsEditing(false); setIsAddingEvent(true); setNewEventData({ time: "10:00", title: "", desc: "", type: "action", locationQuery: "", transportTime: "", transportCost: "", transportMode: "Footprints", tags: "", completed: false }); }} className="w-full border-2 border-dashed border-[var(--border-color)] text-[var(--text-muted)] rounded-lg p-3 hover:text-[var(--text-main)]"><PlusCircle className="inline mr-2"/>新增行程</button></div>
+                            <div className="ml-4 mt-8 bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded"><h4 className="text-xs text-blue-400 mb-2 font-bold flex items-center gap-2"><FileText size={12}/> 冒險日記 (Journal)</h4><textarea className="w-full bg-transparent text-sm text-[var(--text-main)] outline-none resize-none h-24" placeholder="今天發生了什麼趣事..." value={quests[activeLevel].note||""} onChange={(e)=>updateNote(e.target.value)}></textarea></div>
+                        </div>
                     </div>
                     {isAddingEvent && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
@@ -726,7 +831,7 @@
             return (
                 <div className="w-full animate-enter pb-32">
                     {/* Budget Health Bar Card */}
-                    <div className="bg-slate-800 border-2 border-yellow-600 p-4 mb-4 rounded relative overflow-hidden">
+                    <div className="bg-[var(--bg-card)] border-2 border-yellow-600 p-4 mb-4 rounded relative overflow-hidden">
                         <div className="flex justify-between items-end mb-2 relative z-10">
                             <div>
                                 <div className="text-xs text-yellow-600 font-bold mb-1 flex gap-2 items-center">
@@ -750,7 +855,7 @@
                                 )}
                             </div>
                             <div className="text-right">
-                                <div className="text-[10px] text-slate-400">今日建議上限</div>
+                                <div className="text-[10px] text-[var(--text-muted)]">今日建議上限</div>
                                 <div className="text-sm font-bold text-blue-300">¥{dailyCap.toLocaleString()}</div>
                             </div>
                         </div>
@@ -758,7 +863,7 @@
                         <div className="hp-bar-container w-full relative">
                             <div className={`hp-bar-fill ${budgetPercent > 50 ? 'bg-green-500' : budgetPercent > 20 ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'}`} style={{width: `${budgetPercent}%`}}></div>
                         </div>
-                        <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1">
                             <span>已支出: ¥{totalSpent.toLocaleString()}</span>
                             <span>{Math.round(budgetPercent)}%</span>
                         </div>
@@ -766,31 +871,31 @@
                     
                     {/* Cash & IC & Fund Management */}
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className={`bg-slate-900 border p-3 rounded relative flex flex-col justify-between ${cashRemaining < 10000 ? 'border-red-500/50' : 'border-slate-700'}`}>
+                        <div className={`bg-[var(--bg-card)] border p-3 rounded relative flex flex-col justify-between ${cashRemaining < 10000 ? 'border-red-500/50' : 'border-[var(--border-color)]'}`}>
                             <div>
-                                <div className="flex items-center gap-2 text-slate-400 mb-1"><Banknote size={14}/> <span className="text-xs font-bold">錢包現金</span></div>
-                                <div className={`text-lg font-bold font-mono ${cashRemaining < 3000 ? 'text-red-500' : cashRemaining < 10000 ? 'text-yellow-500' : 'text-white'}`}>¥{cashRemaining.toLocaleString()}</div>
+                                <div className="flex items-center gap-2 text-[var(--text-muted)] mb-1"><Banknote size={14}/> <span className="text-xs font-bold">錢包現金</span></div>
+                                <div className={`text-lg font-bold font-mono ${cashRemaining < 3000 ? 'text-red-500' : cashRemaining < 10000 ? 'text-yellow-500' : 'text-[var(--text-main)]'}`}>¥{cashRemaining.toLocaleString()}</div>
                             </div>
                             {cashRemaining < 10000 && <div className="text-[9px] text-red-400 absolute top-2 right-2 flex items-center"><AlertTriangle size={10}/> 補水!</div>}
                         </div>
 
-                        <div className={`bg-slate-900 border p-3 rounded relative flex flex-col justify-between ${icRemaining < 1000 ? 'border-red-500/50' : 'border-slate-700'}`}>
+                        <div className={`bg-[var(--bg-card)] border p-3 rounded relative flex flex-col justify-between ${icRemaining < 1000 ? 'border-red-500/50' : 'border-[var(--border-color)]'}`}>
                             <div>
-                                <div className="flex items-center gap-2 text-slate-400 mb-1"><ScanLine size={14}/> <span className="text-xs font-bold">IC 卡餘額</span></div>
+                                <div className="flex items-center gap-2 text-[var(--text-muted)] mb-1"><ScanLine size={14}/> <span className="text-xs font-bold">IC 卡餘額</span></div>
                                 <div className={`text-lg font-bold font-mono ${icRemaining < 1000 ? 'text-red-500' : 'text-green-400'}`}>¥{icRemaining.toLocaleString()}</div>
                             </div>
                         </div>
                     </div>
 
-                    <button onClick={() => setIsManagingFunds(true)} className="w-full bg-slate-800 border border-slate-600 hover:bg-slate-700 text-slate-300 py-2 rounded-lg text-xs font-bold mb-4 flex items-center justify-center gap-2 transition">
+                    <button onClick={() => setIsManagingFunds(true)} className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:bg-slate-700 text-[var(--text-muted)] py-2 rounded-lg text-xs font-bold mb-4 flex items-center justify-center gap-2 transition">
                         <Activity size={14}/> 💰 資金調度 (儲值/提款)
                     </button>
 
                     {/* Settlement Dashboard */}
-                    <div className="bg-slate-900 border border-slate-700 p-3 mb-4 rounded flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-slate-400"><Calculator size={16}/> <span className="text-xs font-bold">結算中心</span></div>
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-[var(--text-muted)]"><Calculator size={16}/> <span className="text-xs font-bold">結算中心</span></div>
                         <div className="text-right">
-                            <div className="text-[10px] text-slate-500">目前代墊總額</div>
+                            <div className="text-[10px] text-[var(--text-muted)]">目前代墊總額</div>
                             <div className="text-lg font-bold text-green-400">+¥{myCredits.toLocaleString()}</div>
                         </div>
                     </div>
@@ -825,8 +930,8 @@
                         </div>
                     )}
 
-                    <div className={`bg-slate-800 border p-3 mb-4 rounded ${isEditingExpense ? 'border-blue-500' : 'border-slate-700'}`}>
-                        <h3 className="font-bold text-slate-300 mb-2 flex justify-between items-center">
+                    <div className={`bg-[var(--bg-card)] border p-3 mb-4 rounded ${isEditingExpense ? 'border-blue-500' : 'border-[var(--border-color)]'}`}>
+                        <h3 className="font-bold text-[var(--text-main)] mb-2 flex justify-between items-center">
                             <span className="flex gap-2"><CreditCard size={16}/> {isEditingExpense ? "編輯支出" : "新增支出"}</span>
                             <div className="relative">
                                 <button onClick={()=>ocrInputRef.current.click()} className="text-[10px] bg-blue-600 px-2 py-1 rounded text-white flex items-center gap-1">
@@ -845,7 +950,7 @@
                                     <button 
                                         key={cat.id} 
                                         onClick={()=>setNewExp({...newExp, type: cat.id})} 
-                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all whitespace-nowrap ${isActive ? cat.activeClass : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:border-slate-600'}`}
+                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all whitespace-nowrap ${isActive ? cat.activeClass : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:bg-slate-700'}`}
                                     >
                                         <Icon size={14} />
                                         {cat.label}
@@ -854,11 +959,11 @@
                             })}
                         </div>
 
-                        <div className="flex flex-wrap gap-2 mb-2"><input type="text" placeholder="項目" value={newExp.item} onChange={e=>setNewExp({...newExp,item:e.target.value})} className="flex-[2] min-w-[120px] bg-slate-900 border-slate-600 p-2 text-xs rounded text-white"/><div className="flex-[1] flex border border-slate-600 rounded min-w-[110px]"><input type="number" placeholder="金額" value={newExp.cost} onChange={e=>setNewExp({...newExp,cost:e.target.value})} className="w-full bg-slate-900 p-2 text-xs text-white outline-none"/><button onClick={()=>setNewExp({...newExp,currency:newExp.currency==='JPY'?'TWD':'JPY'})} className="px-2 bg-slate-700 text-[10px] text-white shrink-0">{newExp.currency}</button></div></div>
+                        <div className="flex flex-wrap gap-2 mb-2"><input type="text" placeholder="項目" value={newExp.item} onChange={e=>setNewExp({...newExp,item:e.target.value})} className="flex-[2] min-w-[120px] bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]"/><div className="flex-[1] flex border border-[var(--border-color)] rounded min-w-[110px]"><input type="number" placeholder="金額" value={newExp.cost} onChange={e=>setNewExp({...newExp,cost:e.target.value})} className="w-full bg-[var(--bg-input)] p-2 text-xs text-[var(--text-main)] outline-none"/><button onClick={()=>setNewExp({...newExp,currency:newExp.currency==='JPY'?'TWD':'JPY'})} className="px-2 bg-slate-700 text-[10px] text-white shrink-0">{newExp.currency}</button></div></div>
                         <div className="flex justify-between items-center flex-wrap gap-2">
                             <div className="flex gap-2">
-                                <select value={newExp.payer} onChange={e=>setNewExp({...newExp,payer:e.target.value})} className="bg-slate-700 text-xs rounded px-1 text-white"><option value="me">自用</option><option value="partner">代墊</option></select>
-                                <select value={newExp.method} onChange={e=>setNewExp({...newExp,method:e.target.value})} className="bg-slate-700 text-xs rounded px-1 text-white"><option value="cash">現金</option><option value="card">刷卡</option><option value="ic">IC卡</option></select>
+                                <select value={newExp.payer} onChange={e=>setNewExp({...newExp,payer:e.target.value})} className="bg-[var(--bg-input)] text-[var(--text-main)] text-xs rounded px-1"><option value="me">自用</option><option value="partner">代墊</option></select>
+                                <select value={newExp.method} onChange={e=>setNewExp({...newExp,method:e.target.value})} className="bg-[var(--bg-input)] text-[var(--text-main)] text-xs rounded px-1"><option value="cash">現金</option><option value="card">刷卡</option><option value="ic">IC卡</option></select>
                             </div>
                             <div>
                                 {isEditingExpense && <button onClick={()=>{setIsEditingExpense(false); setNewExp({ item: "", cost: "", type: "loot", method: "cash", payer: "me", date: new Date().toISOString().split('T')[0], currency: "JPY" });}} className="text-slate-500 text-xs mr-2">取消</button>}
@@ -868,24 +973,24 @@
                         {newExp.cost && newExp.currency==='TWD' && <div className="text-[10px] text-right text-slate-500 mt-1">≈ ¥{Math.round(newExp.cost/exchangeRate).toLocaleString()}</div>}
                     </div>
 
-                    <div className="bg-slate-800 border border-slate-700 p-3 mb-4 rounded">
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded">
                         <h3 className="font-bold text-pink-300 mb-2 flex gap-2"><ShoppingBag size={16}/> 必買清單 (Shopping)</h3>
-                        <div className="flex gap-2 mb-2"><input type="text" placeholder="新增商品..." value={newShopItem} onChange={e=>setNewShopItem(e.target.value)} className="flex-1 bg-slate-900 border-slate-600 p-2 text-xs rounded text-white"/><button onClick={addShopItem}><PlusCircle size={20} className="text-pink-400"/></button></div>
-                        <div className="space-y-1">{shoppingList.map(item=><div key={item.id} className={`flex items-center gap-2 p-2 rounded border border-slate-700 ${item.checked?'opacity-50 line-through bg-slate-900':'bg-slate-800'}`}><div onClick={()=>toggleShop(item.id)} className={`w-4 h-4 border ${item.checked?'bg-pink-500 border-pink-500':'border-slate-500'} rounded-sm flex items-center justify-center cursor-pointer`}>{item.checked&&<Check size={12} className="text-white"/>}</div><span className="flex-1 text-xs">{item.text}</span><button onClick={(e)=>{e.stopPropagation();deleteShopItem(item.id)}} className="text-red-400"><Trash2 size={12}/></button></div>)}</div>
+                        <div className="flex gap-2 mb-2"><input type="text" placeholder="新增商品..." value={newShopItem} onChange={e=>setNewShopItem(e.target.value)} className="flex-1 bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]"/><button onClick={addShopItem}><PlusCircle size={20} className="text-pink-400"/></button></div>
+                        <div className="space-y-1">{shoppingList.map(item=><div key={item.id} className={`flex items-center gap-2 p-2 rounded border border-[var(--border-color)] ${item.checked?'opacity-50 line-through bg-slate-900':'bg-[var(--bg-card)]'}`}><div onClick={()=>toggleShop(item.id)} className={`w-4 h-4 border ${item.checked?'bg-pink-500 border-pink-500':'border-slate-500'} rounded-sm flex items-center justify-center cursor-pointer`}>{item.checked&&<Check size={12} className="text-white"/>}</div><span className="flex-1 text-xs">{item.text}</span><button onClick={(e)=>{e.stopPropagation();deleteShopItem(item.id)}} className="text-red-400"><Trash2 size={12}/></button></div>)}</div>
                     </div>
 
                     <div className="space-y-1">
                         {expenses.map(e => {
                             const TypeIcon = EXPENSE_ICONS[e.type] || HelpCircle;
                             return (
-                                <div key={e.id} onClick={() => editExpense(e)} className="flex justify-between items-center p-2 border-b border-slate-800 bg-slate-800/50 hover:bg-slate-700/50 transition cursor-pointer">
+                                <div key={e.id} onClick={() => editExpense(e)} className="flex justify-between items-center p-2 border-b border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-slate-700/50 transition cursor-pointer">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${e.type==='trade'?'bg-pink-900 text-pink-300':e.type==='loot'?'bg-yellow-900 text-yellow-300':e.type==='travel'?'bg-blue-900 text-blue-300':e.type==='save'?'bg-green-900 text-green-300':'bg-slate-700 text-slate-300'}`}>
                                             <TypeIcon size={14} />
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="text-xs font-bold">{e.item}</span>
-                                            <span className="text-[9px] text-slate-500">{e.payer==='partner'?'(代墊)':'(自用)'} · {e.method}</span>
+                                            <span className="text-[9px] text-[var(--text-muted)]">{e.payer==='partner'?'(代墊)':'(自用)'} · {e.method}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -904,7 +1009,7 @@
         const GuideView = () => {
             const [expandedGuideId, setExpandedGuideId] = useState(null);
             return (
-                <div className="w-full animate-enter pb-20"><div className="space-y-4">{GUIDE_DETAILS.map((place) => (<div key={place.id} className="bg-slate-800 border-2 border-slate-600 rounded-lg overflow-hidden transition-all duration-300"><div className="p-4 cursor-pointer hover:bg-slate-700/50 flex items-center gap-4" onClick={() => setExpandedGuideId(expandedGuideId === place.id ? null : place.id)}><div className="text-4xl">{place.image}</div><div className="flex-1"><h3 className="font-bold text-lg text-yellow-400">{place.title}</h3><p className="text-xs text-slate-400 mb-1">{place.subtitle}</p><div className="flex gap-1 flex-wrap">{place.tags.map(tag => (<span key={tag} className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-blue-300 border border-slate-600">#{tag}</span>))}</div></div><div className={`transition-transform duration-300 ${expandedGuideId === place.id ? 'rotate-180' : ''}`}><ArrowDown size={16} className="text-slate-500" /></div></div>{expandedGuideId === place.id && (<div className="p-4 pt-0 border-t border-slate-700 bg-slate-900/50 animate-in slide-in-from-top-2"><div className="text-sm text-slate-300 mb-4 leading-relaxed mt-4">{place.desc}</div><div className="space-y-3 text-xs"><div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-blue-400 mb-1 flex items-center gap-2"><Clock size={12}/> 歷史小知識</h4><p className="text-slate-400">{place.content.history}</p></div><div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-yellow-400 mb-1 flex items-center gap-2"><Star size={12} /> 特色與必看</h4><p className="text-slate-400">{place.content.features}</p></div><div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-green-400 mb-1 flex items-center gap-2"><MapPin size={12}/> 攻略 Tips</h4><p className="text-slate-400">{place.content.tips}</p></div><div className="bg-red-900/20 p-3 rounded border border-red-900/50"><h4 className="font-bold text-red-400 mb-1 flex items-center gap-2"><AlertTriangle size={12}/> 注意事項</h4><p className="text-red-200/80">{place.content.warning}</p></div></div></div>)}</div>))}</div></div>
+                <div className="w-full animate-enter pb-20"><div className="space-y-4">{GUIDE_DETAILS.map((place) => (<div key={place.id} className="bg-[var(--bg-card)] border-2 border-[var(--border-color)] rounded-lg overflow-hidden transition-all duration-300"><div className="p-4 cursor-pointer hover:bg-slate-700/50 flex items-center gap-4" onClick={() => setExpandedGuideId(expandedGuideId === place.id ? null : place.id)}><div className="text-4xl">{place.image}</div><div className="flex-1"><h3 className="font-bold text-lg text-yellow-400">{place.title}</h3><p className="text-xs text-[var(--text-muted)] mb-1">{place.subtitle}</p><div className="flex gap-1 flex-wrap">{place.tags.map(tag => (<span key={tag} className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-blue-300 border border-slate-600">#{tag}</span>))}</div></div><div className={`transition-transform duration-300 ${expandedGuideId === place.id ? 'rotate-180' : ''}`}><ArrowDown size={16} className="text-slate-500" /></div></div>{expandedGuideId === place.id && (<div className="p-4 pt-0 border-t border-[var(--border-color)] bg-[var(--bg-input)] animate-in slide-in-from-top-2"><div className="text-sm text-[var(--text-main)] mb-4 leading-relaxed mt-4">{place.desc}</div><div className="space-y-3 text-xs"><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-blue-400 mb-1 flex items-center gap-2"><Clock size={12}/> 歷史小知識</h4><p className="text-[var(--text-muted)]">{place.content.history}</p></div><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-yellow-400 mb-1 flex items-center gap-2"><Star size={12} /> 特色與必看</h4><p className="text-[var(--text-muted)]">{place.content.features}</p></div><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-green-400 mb-1 flex items-center gap-2"><MapPin size={12}/> 攻略 Tips</h4><p className="text-[var(--text-muted)]">{place.content.tips}</p></div><div className="bg-red-900/20 p-3 rounded border border-red-900/50"><h4 className="font-bold text-red-400 mb-1 flex items-center gap-2"><AlertTriangle size={12}/> 注意事項</h4><p className="text-red-200/80">{place.content.warning}</p></div></div></div>)}</div>))}</div></div>
             );
         };
 
@@ -965,7 +1070,7 @@
             return (
                 <div className="w-full animate-enter pb-20">
                      {/* Translation Tool */}
-                     <div className="bg-slate-800 border-2 border-blue-500 p-4 rounded-sm mb-6 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                     <div className="bg-[var(--bg-card)] border-2 border-blue-500 p-4 rounded-sm mb-6 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.2)]">
                         <div className="absolute top-0 right-0 bg-blue-600 text-[10px] px-2 py-0.5 text-white font-bold font-mono">LIVE TRANSLATE</div>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2"><Globe className="text-blue-400" size={20} /><h3 className="font-bold text-blue-300">通用語翻譯術</h3></div>
@@ -974,7 +1079,7 @@
                             </button>
                         </div>
                         <div className="flex gap-2">
-                            <input type="text" placeholder={transMode==='JP'?"輸入中文...":"輸入日文..."} value={transInput} onChange={(e) => setTransInput(e.target.value)} className="flex-1 min-w-0 bg-slate-900 border border-slate-600 p-2 text-sm text-white rounded outline-none focus:border-blue-400 placeholder:text-slate-600"/>
+                            <input type="text" placeholder={transMode==='JP'?"輸入中文...":"輸入日文..."} value={transInput} onChange={(e) => setTransInput(e.target.value)} className="flex-1 min-w-0 bg-[var(--bg-input)] border border-[var(--border-color)] p-2 text-sm text-[var(--text-main)] rounded outline-none focus:border-blue-400 placeholder:text-slate-500"/>
                             <button onClick={handleTranslate} disabled={isTranslating} className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:text-gray-400 text-white px-4 rounded font-bold text-xs transition flex items-center gap-1 whitespace-nowrap shrink-0">
                                 {isTranslating ? <Loader2 className="animate-spin" size={14} /> : "詠唱"}
                             </button>
@@ -996,12 +1101,12 @@
 
                         {/* History (Recent 3) */}
                         {history.length > 0 && !transResult && (
-                            <div className="mt-3 pt-3 border-t border-slate-700">
+                            <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
                                 <div className="text-[10px] text-slate-500 mb-2">詠唱紀錄</div>
                                 <div className="space-y-2">
                                     {history.slice(0,3).map(h => (
-                                        <div key={h.id} className="flex justify-between items-center text-xs text-slate-400 bg-slate-900/50 p-2 rounded">
-                                            <span>{h.input} ⮕ <span className="text-slate-200">{h.output}</span></span>
+                                        <div key={h.id} className="flex justify-between items-center text-xs text-slate-400 bg-[var(--bg-input)] p-2 rounded">
+                                            <span>{h.input} ⮕ <span className="text-[var(--text-main)]">{h.output}</span></span>
                                             <button onClick={() => copyText(h.output)}><Copy size={12}/></button>
                                         </div>
                                     ))}
@@ -1023,7 +1128,7 @@
                             <button 
                                 key={f.id} 
                                 onClick={()=>setFilterType(f.id)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold border whitespace-nowrap transition-colors ${filterType === f.id ? 'bg-purple-600 border-purple-400 text-white' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold border whitespace-nowrap transition-colors ${filterType === f.id ? 'bg-purple-600 border-purple-400 text-white' : 'bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)] hover:bg-slate-700'}`}
                             >
                                 {f.label}
                             </button>
@@ -1032,15 +1137,15 @@
 
                      {/* Spells Grid */}
                      <div className="grid grid-cols-2 gap-3">
-                        <div onClick={()=>setIsAddingSpell(true)} className="bg-slate-800/50 border-2 border-dashed border-slate-600 p-3 rounded hover:border-purple-500 transition cursor-pointer flex flex-col items-center justify-center text-slate-500 hover:text-purple-400 min-h-[100px]">
+                        <div onClick={()=>setIsAddingSpell(true)} className="bg-[var(--bg-card)] border-2 border-dashed border-[var(--border-color)] p-3 rounded hover:border-purple-500 transition cursor-pointer flex flex-col items-center justify-center text-[var(--text-muted)] hover:text-purple-400 min-h-[100px]">
                             <Plus size={24} className="mb-2"/>
                             <span className="text-xs font-bold">撰寫新咒語</span>
                         </div>
                         {filteredSpells.map((spell, idx) => (
-                            <div key={idx} onClick={() => setSelectedSpell(spell)} className="bg-slate-800 border border-slate-600 p-3 rounded hover:border-purple-500 transition group cursor-pointer relative overflow-hidden flex flex-col items-center text-center shadow-md active:scale-[0.98]">
+                            <div key={idx} onClick={() => setSelectedSpell(spell)} className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded hover:border-purple-500 transition group cursor-pointer relative overflow-hidden flex flex-col items-center text-center shadow-md active:scale-[0.98]">
                                 <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">{spell.icon || "✨"}</div>
                                 <div className="font-bold text-purple-300 text-sm mb-1">{spell.title}</div>
-                                <div className="text-[10px] text-slate-500 line-clamp-1">{spell.zh}</div>
+                                <div className="text-[10px] text-[var(--text-muted)] line-clamp-1">{spell.zh}</div>
                                 <div className="absolute top-2 right-2 text-slate-500 hover:text-white" onClick={(e) => { e.stopPropagation(); speakJapanese(spell.jp); }}><Volume2 size={16} /></div>
                             </div>
                         ))}
@@ -1104,6 +1209,9 @@
             const [sosModalContent, setSosModalContent] = useState(null);
             // Call Confirmation State
             const [confirmCall, setConfirmCall] = useState(null);
+            // Settings Modal State
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [apiKeyInput, setApiKeyInput] = useState(localStorage.getItem('gemini_api_key') || '');
             
             // Ticket Lightbox State
             const [viewingTicket, setViewingTicket] = useState(null);
@@ -1137,6 +1245,18 @@
             const deleteChecklistItem = (id) => {
                 if(confirm("刪除項目?")) setChecklist(checklist.filter(i => i.id !== id));
             };
+            
+            const copyShareLink = () => {
+                const url = window.location.origin + window.location.pathname + '?tripId=' + tripId;
+                navigator.clipboard.writeText(url);
+                alert("已複製分享連結！\n" + url);
+            };
+            
+            const saveApiKey = () => {
+                localStorage.setItem('gemini_api_key', apiKeyInput);
+                setIsSettingsOpen(false);
+                alert("API Key 已儲存！");
+            };
 
             // Improved Weather/Outfit Logic (Reuse)
             const getWeatherDetails = (t) => {
@@ -1160,6 +1280,11 @@
             return (
                 <div className="w-full animate-enter pb-32 space-y-4">
                     
+                    {/* Settings Button */}
+                    <div className="flex justify-end">
+                        <button onClick={()=>setIsSettingsOpen(true)} className="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full"><Settings size={18}/></button>
+                    </div>
+
                     {/* Guild Card (Replaces simple Trip ID) */}
                     <div className="guild-card p-5 rounded-xl shadow-2xl relative">
                         <div className="relative z-10 flex justify-between items-start">
@@ -1174,6 +1299,7 @@
                             <div className="text-[9px] text-slate-400 uppercase font-mono mb-1 flex items-center gap-1"><Users size={9}/> Trip ID (Share Code)</div>
                             <div className="flex gap-2">
                                 <input type="text" value={tempTripId} onChange={e=>setTempTripId(e.target.value)} className="flex-1 bg-transparent border-none text-white font-mono text-sm outline-none tracking-wider font-bold" />
+                                <button onClick={copyShareLink} className="text-[10px] bg-blue-600/50 hover:bg-blue-600 px-3 rounded text-white transition flex items-center gap-1"><LinkIcon size={10}/> 複製</button>
                                 <button onClick={joinTrip} className="text-[10px] bg-white/10 hover:bg-white/20 px-3 rounded text-white transition">切換</button>
                             </div>
                         </div>
@@ -1181,23 +1307,23 @@
 
                     {/* Quick Links */}
                     <div className="grid grid-cols-3 gap-2">
-                        <button onClick={() => window.open('https://www.vjw.digital.go.jp/', '_blank')} className="bg-slate-800 p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        <button onClick={() => window.open('https://www.vjw.digital.go.jp/', '_blank')} className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
                             <QrCode size={20} className="text-pink-400"/>
                             <span className="text-[9px]">VJW</span>
                         </button>
-                        <button onClick={() => window.open('https://www.google.com/maps', '_blank')} className="bg-slate-800 p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        <button onClick={() => window.open('https://www.google.com/maps', '_blank')} className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
                             <Map size={20} className="text-green-400"/>
                             <span className="text-[9px]">地圖</span>
                         </button>
-                        <button onClick={() => window.open('https://www.kotsu.city.nagoya.jp/en/pc/subway/img/subway_route_map.pdf', '_blank')} className="bg-slate-800 p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        <button onClick={() => window.open('https://subway.kotsu.city.nagoya.jp/img/stn_map/subway_rosenzu.pdf', '_blank')} className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
                             <Train size={20} className="text-blue-400"/>
                             <span className="text-[9px]">地鐵圖</span>
                         </button>
                     </div>
 
                     {/* 5-Day Weather Forecast */}
-                    <div className="bg-slate-800 border border-slate-700 p-3 rounded overflow-hidden">
-                        <h3 className="font-bold text-slate-300 text-xs mb-3 flex items-center gap-2"><CloudSun size={14}/> 未來天氣預報</h3>
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded overflow-hidden">
+                        <h3 className="font-bold text-[var(--text-main)] text-xs mb-3 flex items-center gap-2"><CloudSun size={14}/> 未來天氣預報</h3>
                         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
                             {quests.map((q, idx) => {
                                 const w = weatherForecast[idx] || {};
@@ -1205,11 +1331,11 @@
                                 const info = getWeatherDetails(w.max);
                                 const WIcon = info.icon;
                                 return (
-                                    <div key={idx} className="flex-shrink-0 w-20 bg-slate-900 p-2 rounded border border-slate-700 flex flex-col items-center text-center">
-                                        <div className="text-[9px] text-slate-500 mb-1">{idx===0?'今天':`Day ${idx}`}</div>
+                                    <div key={idx} className="flex-shrink-0 w-20 bg-[var(--bg-input)] p-2 rounded border border-[var(--border-color)] flex flex-col items-center text-center">
+                                        <div className="text-[9px] text-[var(--text-muted)] mb-1">{idx===0?'今天':`Day ${idx}`}</div>
                                         <WIcon size={20} className={info.color} />
-                                        <div className="text-xs font-bold text-white mt-1">{w.max}°</div>
-                                        <div className="text-[9px] text-slate-400">{w.min}°</div>
+                                        <div className="text-xs font-bold text-[var(--text-main)] mt-1">{w.max}°</div>
+                                        <div className="text-[9px] text-[var(--text-muted)]">{w.min}°</div>
                                     </div>
                                 )
                             })}
@@ -1231,6 +1357,22 @@
                              <span className="text-xs font-bold text-orange-200">求助字卡</span>
                          </button>
                     </div>
+
+                    {/* Settings Modal (API Key) */}
+                    {isSettingsOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in">
+                            <div className="bg-slate-900 border-2 border-blue-500 w-full max-w-sm rounded-xl p-5 shadow-2xl relative">
+                                <button onClick={() => setIsSettingsOpen(false)} className="absolute top-3 right-3 text-slate-500"><X size={20}/></button>
+                                <h3 className="text-blue-400 font-bold mb-4 flex items-center gap-2"><Settings size={18}/> 系統設定</h3>
+                                <div className="mb-4">
+                                    <div className="text-xs text-slate-400 mb-2 font-bold flex items-center gap-1"><Key size={12}/> Gemini API Key</div>
+                                    <input type="password" value={apiKeyInput} onChange={e=>setApiKeyInput(e.target.value)} placeholder="貼上您的 API Key" className="w-full bg-slate-800 border-2 border-slate-600 rounded-lg py-2 px-3 text-white text-xs outline-none focus:border-blue-500" />
+                                    <p className="text-[9px] text-slate-500 mt-2">此 Key 僅儲存於您的瀏覽器本地端，用於翻譯與 OCR 功能。</p>
+                                </div>
+                                <button onClick={saveApiKey} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg transition text-xs">儲存設定</button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Call Confirmation Modal (Safeguard) (Existing) */}
                     {confirmCall && (
@@ -1273,9 +1415,9 @@
                     )}
 
                     {/* Currency Converter Widget */}
-                    <div className="bg-slate-800 border border-slate-700 p-4 rounded">
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 rounded">
                         <div className="flex justify-between items-center mb-3">
-                            <h3 className="font-bold text-slate-300 flex items-center gap-2"><Calculator size={16}/> 快速匯率換算</h3>
+                            <h3 className="font-bold text-[var(--text-main)] flex items-center gap-2"><Calculator size={16}/> 快速匯率換算</h3>
                             <button onClick={()=>setCalcDir(calcDir==='J2T'?'T2J':'J2T')} className="text-[10px] bg-slate-700 px-2 py-1 rounded border border-slate-600 flex items-center gap-1 hover:bg-slate-600 transition">
                                 {calcDir==='J2T' ? '日 ⮕ 台' : '台 ⮕ 日'} <RotateCcw size={10}/>
                             </button>
@@ -1283,10 +1425,10 @@
                         <div className="flex items-center gap-2">
                             <div className="flex-1 relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">{calcDir==='J2T'?'JPY':'TWD'}</span>
-                                <input type="number" placeholder="金額" value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded pl-10 p-2 text-white outline-none focus:border-yellow-500 font-mono" />
+                                <input type="number" placeholder="金額" value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded pl-10 p-2 text-[var(--text-main)] outline-none focus:border-yellow-500 font-mono" />
                             </div>
-                            <ArrowRightLeft className="text-slate-500" size={16} />
-                            <div className="flex-1 bg-slate-900/50 border border-slate-700 rounded p-2 text-right font-mono text-yellow-400 font-bold flex justify-between items-center px-3">
+                            <ArrowRightLeft className="text-[var(--text-muted)]" size={16} />
+                            <div className="flex-1 bg-[var(--bg-input)] border border-[var(--border-color)] rounded p-2 text-right font-mono text-yellow-400 font-bold flex justify-between items-center px-3">
                                 <span className="text-[10px] text-slate-500">{calcDir==='J2T'?'TWD':'JPY'}</span>
                                 <span>{calcAmount ? `≈ ${Math.round(calcDir==='J2T' ? calcAmount * exchangeRate : calcAmount / exchangeRate).toLocaleString()}` : "0"}</span>
                             </div>
@@ -1294,14 +1436,14 @@
                     </div>
 
                     {/* Tickets Wallet */}
-                    <div className="bg-slate-800 border border-green-500 p-4 rounded">
+                    <div className="bg-[var(--bg-card)] border border-green-500 p-4 rounded">
                         <div className="flex justify-between mb-3"><h3 className="font-bold text-green-300 flex items-center gap-2"><Ticket size={16}/> 票券夾 (Wallet)</h3><button onClick={()=>setIsEditingTicket(true)} className="text-xs bg-slate-700 px-2 rounded"><PlusCircle size={14}/></button></div>
                         {isEditingTicket && <div className="mb-4 bg-slate-900 p-3 rounded"><input type="text" placeholder="票券名稱 (如: 虎航去程)" value={newTicket.title} onChange={e=>setNewTicket({...newTicket,title:e.target.value})} className="w-full mb-2 bg-slate-800 border-slate-600 p-2 text-xs text-white"/><input type="file" onChange={handleTicketUpload} className="text-xs text-slate-400 mb-2"/><button onClick={saveTicket} className="w-full bg-green-600 text-white text-xs py-1 rounded">新增票券</button></div>}
                         <div className="grid grid-cols-2 gap-2">
                             {tickets.map(t=> (
-                                <div key={t.id} onClick={()=>t.image && setViewingTicket(t)} className="bg-slate-900 p-2 rounded border border-slate-700 relative cursor-pointer ticket-edge group hover:border-green-500/50 transition">
+                                <div key={t.id} onClick={()=>t.image && setViewingTicket(t)} className="bg-[var(--bg-input)] p-2 rounded border border-[var(--border-color)] relative cursor-pointer ticket-edge group hover:border-green-500/50 transition">
                                     <div className="text-xs font-bold mb-1">{t.title}</div>
-                                    <div className="text-[10px] bg-slate-800 px-1 rounded inline-block">{t.type}</div>
+                                    <div className="text-[10px] bg-[var(--bg-card)] px-1 rounded inline-block">{t.type}</div>
                                     {t.image && <div className="absolute top-2 right-2 text-green-500"><ImageIcon size={14}/></div>}
                                     <button onClick={(e)=>{e.stopPropagation();deleteTicket(t.id)}} className="absolute bottom-2 right-2 text-red-400 opacity-0 group-hover:opacity-100 transition"><Trash2 size={12}/></button>
                                 </div>
@@ -1321,13 +1463,13 @@
                     )}
 
                     {/* Checklist */}
-                    <div className="bg-slate-800 border border-slate-600 p-4 rounded">
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 rounded">
                         <div className="flex justify-between items-center mb-3">
-                            <h3 className="font-bold text-slate-300 flex gap-2"><Shield size={16}/> 裝備檢查</h3>
+                            <h3 className="font-bold text-[var(--text-main)] flex gap-2"><Shield size={16}/> 裝備檢查</h3>
                         </div>
                         <div className="space-y-1 mb-3">
                             {checklist.map(i => (
-                                <div key={i.id} onClick={()=>setChecklist(checklist.map(x=>x.id===i.id?{...x,checked:!x.checked}:x))} className={`flex items-center gap-2 p-2 rounded border border-slate-700 group cursor-pointer ${i.checked?'opacity-50 line-through bg-slate-900':'bg-slate-800'}`}>
+                                <div key={i.id} onClick={()=>setChecklist(checklist.map(x=>x.id===i.id?{...x,checked:!x.checked}:x))} className={`flex items-center gap-2 p-2 rounded border border-[var(--border-color)] group cursor-pointer ${i.checked?'opacity-50 line-through bg-slate-900':'bg-[var(--bg-card)]'}`}>
                                     <div className={`w-4 h-4 border ${i.checked?'bg-green-600':'border-slate-500'} rounded-sm flex items-center justify-center`}>{i.checked&&<Check size={12} className="text-white"/>}</div>
                                     <span className="text-xs flex-1">{i.text}</span>
                                     <button onClick={(e)=>{e.stopPropagation(); deleteChecklistItem(i.id)}} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={12}/></button>
@@ -1335,7 +1477,7 @@
                             ))}
                         </div>
                         <div className="flex gap-2">
-                            <input type="text" placeholder="新增物品..." value={newItemText} onChange={e=>setNewItemText(e.target.value)} className="flex-1 bg-slate-900 border border-slate-600 rounded p-2 text-xs text-white"/>
+                            <input type="text" placeholder="新增物品..." value={newItemText} onChange={e=>setNewItemText(e.target.value)} className="flex-1 bg-[var(--bg-input)] border border-[var(--border-color)] rounded p-2 text-xs text-[var(--text-main)]"/>
                             <button onClick={addChecklistItem} className="bg-slate-700 text-white px-3 rounded text-xs"><Plus size={14}/></button>
                         </div>
                     </div>
@@ -1356,9 +1498,18 @@
             const [countdown, setCountdown] = useState("");
             const [weatherForecast, setWeatherForecast] = useState({});
             const [weatherTemp, setWeatherTemp] = useState(15); 
+            const [isLightMode, setIsLightMode] = useState(false); // Outdoor Mode
 
             useEffect(() => {
                 const initAuth = async () => { 
+                    // Check URL for tripId sharing
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const sharedTripId = urlParams.get('tripId');
+                    if (sharedTripId) {
+                        setTripId(sharedTripId);
+                        localStorage.setItem('tripId', sharedTripId);
+                    }
+
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         try {
                             await signInWithCustomToken(auth, __initial_auth_token);
@@ -1453,21 +1604,32 @@
                  user, tripId, setTripId, checklist, setChecklist, expenses, setExpenses, quests, setQuests, budget, setBudget,
                  shoppingList, setShoppingList, tickets, setTickets, activeTab, setActiveTab, activeLevel, setActiveLevel, 
                  countdown, exchangeRate, weatherForecast, weatherTemp, speakJapanese: speakJapaneseFixed,
-                 stats, isOffline, settingsData, updateSettings, stamps, setStamps, customSpells, setCustomSpells, history, setHistory
-            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp, speakJapaneseFixed, stats, isOffline, settingsData, updateSettings, stamps, customSpells, history]);
+                 stats, isOffline, settingsData, updateSettings, stamps, setStamps, customSpells, setCustomSpells, history, setHistory,
+                 isLightMode, setIsLightMode
+            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp, speakJapaneseFixed, stats, isOffline, settingsData, updateSettings, stamps, customSpells, history, isLightMode]);
 
 
             if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white"><Loader2 className="animate-spin text-yellow-500" size={40}/></div>;
             if (!user) return <LoginView onLogin={() => signInWithPopup(getAuth(app), new GoogleAuthProvider())} />;
 
-            return <AppContext.Provider value={contextValueFixed}><MainLayout /></AppContext.Provider>;
+            return (
+                <div className={isLightMode ? "light-mode" : ""}>
+                    <AppContext.Provider value={contextValueFixed}><MainLayout /></AppContext.Provider>
+                </div>
+            );
         };
 
         const MainLayout = () => {
-            const { activeTab, setActiveTab } = useContext(AppContext);
+            const { activeTab, setActiveTab, isLightMode, setIsLightMode } = useContext(AppContext);
             return (
-                <div className="min-h-screen pb-20 max-w-md mx-auto shadow-2xl border-x border-slate-800 bg-slate-900 relative">
-                    <div className="w-full mb-6 border-b border-slate-800 pb-4 text-center sticky top-0 bg-slate-900/95 backdrop-blur z-20 pt-4 px-4 shadow-lg"><h1 className="text-xl font-bold tracking-widest text-yellow-400 mb-2 flex justify-center gap-2"><MapPin/> 名古屋冒險日誌</h1></div>
+                <div className="min-h-screen pb-20 max-w-md mx-auto shadow-2xl border-x border-slate-800 relative bg-[var(--bg-main)] transition-colors duration-300">
+                    <div className="w-full mb-6 border-b border-[var(--border-color)] pb-4 text-center sticky top-0 bg-[var(--bg-main)]/95 backdrop-blur z-20 pt-4 px-4 shadow-lg flex items-center justify-between">
+                        <div className="w-8"></div> {/* Spacer */}
+                        <h1 className="text-xl font-bold tracking-widest text-yellow-400 mb-2 flex justify-center gap-2"><MapPin/> 名古屋冒險日誌</h1>
+                        <button onClick={() => setIsLightMode(!isLightMode)} className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--bg-input)] text-[var(--text-main)] hover:text-yellow-400 transition">
+                            {isLightMode ? <SunMoon size={16}/> : <Sun size={16}/>}
+                        </button>
+                    </div>
                     <div className="px-4">
                         {activeTab === 'quest' && <QuestView />}
                         {activeTab === 'inventory' && <InventoryView />}
@@ -1475,12 +1637,12 @@
                         {activeTab === 'guide' && <GuideView />}
                         {activeTab === 'info' && <InfoView />}
                     </div>
-                    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900 border-t border-slate-700 p-2 z-30 pb-safe grid grid-cols-5 gap-1">
-                        <button onClick={()=>setActiveTab('quest')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='quest'?'text-yellow-400':'text-slate-500'}`}><Scroll size={20}/><span className="text-[10px]">任務</span></button>
-                        <button onClick={()=>setActiveTab('inventory')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='inventory'?'text-yellow-400':'text-slate-500'}`}><Coins size={20}/><span className="text-[10px]">行囊</span></button>
-                        <button onClick={()=>setActiveTab('grimoire')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='grimoire'?'text-yellow-400':'text-slate-500'}`}><BookOpen size={20}/><span className="text-[10px]">魔導書</span></button>
-                        <button onClick={()=>setActiveTab('guide')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='guide'?'text-yellow-400':'text-slate-500'}`}><Compass size={20}/><span className="text-[10px]">導覽</span></button>
-                        <button onClick={()=>setActiveTab('info')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='info'?'text-yellow-400':'text-slate-500'}`}><Info size={20}/><span className="text-[10px]">資訊</span></button>
+                    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-main)] border-t border-[var(--border-color)] p-2 z-30 pb-safe grid grid-cols-5 gap-1">
+                        <button onClick={()=>setActiveTab('quest')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='quest'?'text-yellow-400':'text-[var(--text-muted)]'}`}><Scroll size={20}/><span className="text-[10px]">任務</span></button>
+                        <button onClick={()=>setActiveTab('inventory')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='inventory'?'text-yellow-400':'text-[var(--text-muted)]'}`}><Coins size={20}/><span className="text-[10px]">行囊</span></button>
+                        <button onClick={()=>setActiveTab('grimoire')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='grimoire'?'text-yellow-400':'text-[var(--text-muted)]'}`}><BookOpen size={20}/><span className="text-[10px]">魔導書</span></button>
+                        <button onClick={()=>setActiveTab('guide')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='guide'?'text-yellow-400':'text-[var(--text-muted)]'}`}><Compass size={20}/><span className="text-[10px]">導覽</span></button>
+                        <button onClick={()=>setActiveTab('info')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='info'?'text-yellow-400':'text-[var(--text-muted)]'}`}><Info size={20}/><span className="text-[10px]">資訊</span></button>
                     </div>
                 </div>
             );
