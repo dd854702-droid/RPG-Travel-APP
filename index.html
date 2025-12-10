@@ -337,12 +337,27 @@
 
         // --- Hook with Offline Support & LocalStorage Backup ---
         function useFirestoreData(user, tripId, collectionName, initialData, isObject = false) {
-            const [data, setData] = useState(() => {
-                const cached = localStorage.getItem(`${tripId}_${collectionName}`);
-                return cached ? JSON.parse(cached) : initialData;
-            });
+            const [data, setData] = useState(initialData);
             const [isOffline, setIsOffline] = useState(false);
 
+            // 1. Force load from localStorage whenever key changes (Fix for persistence issue)
+            useEffect(() => {
+                if (!tripId) return;
+                const localKey = `${tripId}_${collectionName}`;
+                const cached = localStorage.getItem(localKey);
+                if (cached) {
+                    try {
+                        setData(JSON.parse(cached));
+                    } catch (e) {
+                        console.error("Local load error", e);
+                    }
+                } else {
+                    // If strictly no local data for this user, we might want to default to initialData
+                    // But if initialData is empty array, it's fine.
+                }
+            }, [tripId, collectionName]);
+
+            // 2. Firestore Sync
             useEffect(() => {
                 if (!user || !tripId) return;
 
@@ -360,6 +375,7 @@
                         setData(cloudData);
                         localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(cloudData)); 
                     } else {
+                        // First time creation: Save initialData to Cloud
                         setDoc(docRef, isObject ? initialData : { items: initialData }).catch(e => console.error("Init data failed", e));
                     }
                 }, (error) => {
@@ -371,6 +387,7 @@
 
             const updateData = (newData) => {
                 setData(newData);
+                // Save to local immediately
                 localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(newData)); 
                 
                 if (!user || !tripId) return;
@@ -382,7 +399,6 @@
                 }
                 
                 setDoc(docRef, isObject ? newData : { items: newData }).catch(e => {
-                    // Safety Guard: Fallback for large payloads
                     if (e.code === 'resource-exhausted' || e.message.includes('exceeds the maximum')) {
                         alert("⚠️ 雲端空間不足 (圖片可能過大)。資料已保存於本地，但無法同步給他人。");
                     } else {
@@ -702,6 +718,7 @@
             const [isEditingBudget, setIsEditingBudget] = useState(false); 
             const [tempBudget, setTempBudget] = useState(budget);
             const [tempCashBudget, setTempCashBudget] = useState(settingsData?.cashBudget || 50000);
+            const [tempIcBudget, setTempIcBudget] = useState(settingsData?.icBudget || 3000);
             const [isScanning, setIsScanning] = useState(false);
             const [isEditingExpense, setIsEditingExpense] = useState(false);
             const [editingExpId, setEditingExpId] = useState(null);
@@ -723,22 +740,21 @@
             ];
 
             const cashBudget = settingsData?.cashBudget || 50000;
-            const icBudget = settingsData?.icBudget || 3000; // Default small amount
+            const icBudget = settingsData?.icBudget || 3000; 
             
-            // Fix: Combined update function to prevent race conditions
             const handleSaveBudget = () => {
                 const newTotal = parseInt(tempBudget) || 0;
                 const newCash = parseInt(tempCashBudget) || 0;
+                const newIc = parseInt(tempIcBudget) || 0;
                 
                 updateSettings({
                     ...settingsData,
                     budget: newTotal,
-                    cashBudget: newCash
+                    cashBudget: newCash,
+                    icBudget: newIc
                 });
                 setIsEditingBudget(false);
             };
-
-            const setCashBudget = (val) => updateSettings({ ...settingsData, cashBudget: val });
 
             // Handle Fund Updates
             const handleFundUpdate = () => {
@@ -748,7 +764,7 @@
                 const newSettings = { ...settingsData, cashBudget, icBudget };
 
                 if (fundType === 'withdraw') {
-                    // ATM Withdraw: Add to Cash (Optional: Deduct from total budget? For now just add liquidity)
+                    // ATM Withdraw: Add to Cash
                     newSettings.cashBudget += val;
                     alert(`已記錄提款: ¥${val}`);
                 } else if (fundType === 'charge') {
@@ -783,7 +799,6 @@
                     setEditingExpId(null);
                 } else {
                     setExpenses([{ id: Date.now(), ...payload }, ...expenses]);
-                    // Loot Effect
                     if (newExp.type === 'trade' || newExp.type === 'loot') {
                         confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 }, colors: ['#FFD700', '#FFA500'] });
                     }
@@ -792,7 +807,7 @@
             };
 
             const editExpense = (exp) => {
-                setNewExp({ ...exp, cost: exp.cost, currency: 'JPY' }); // Assume JPY for edit simplification or store currency in future
+                setNewExp({ ...exp, cost: exp.cost, currency: 'JPY' });
                 setEditingExpId(exp.id);
                 setIsEditingExpense(true);
             };
@@ -829,10 +844,10 @@
                 reader.onload = async (ev) => {
                     try {
                         const base64 = ev.target.result;
-                        const result = await callGeminiAPI("Analyze this receipt. Return ONLY a JSON object with {item: string (summary), cost: number (integer), currency: 'JPY' or 'TWD'}. No markdown.", base64);
+                        const result = await callGeminiAPI("Analyze this receipt. Return ONLY a JSON object with {item: string (summary), cost: number (integer), currency: 'JPY' or 'TWD', date: 'YYYY-MM-DD'}. No markdown.", base64);
                         const cleanResult = result.replace(/```json|```/g, '').trim();
                         const parsed = JSON.parse(cleanResult);
-                        setNewExp({ ...newExp, item: parsed.item || "掃描項目", cost: parsed.cost || 0, currency: parsed.currency || 'JPY' });
+                        setNewExp({ ...newExp, item: parsed.item || "掃描項目", cost: parsed.cost || 0, currency: parsed.currency || 'JPY', date: parsed.date || newExp.date });
                     } catch (err) {
                         alert("辨識失敗，請重試");
                         console.error(err);
@@ -848,23 +863,32 @@
                         <div className="flex justify-between items-end mb-2 relative z-10">
                             <div>
                                 <div className="text-xs text-yellow-600 font-bold mb-1 flex gap-2 items-center">
-                                    總預算 (TOTAL BUDGET) 
-                                    {!isEditingBudget && <button onClick={()=>{setIsEditingBudget(true);setTempBudget(budget);setTempCashBudget(cashBudget)}}><Edit size={12}/></button>}
+                                    總額度 (TOTAL BUDGET) 
+                                    {!isEditingBudget && <button onClick={()=>{setIsEditingBudget(true);setTempBudget(budget);setTempCashBudget(cashBudget);setTempIcBudget(icBudget)}}><Edit size={12}/></button>}
                                 </div>
                                 {isEditingBudget ? (
                                     <div className="flex flex-col gap-2 bg-slate-900 p-2 rounded border border-slate-600">
-                                        <div className="flex gap-2 items-center">
-                                            <span className="text-[10px] w-12">總額:</span>
-                                            <input type="number" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600"/>
+                                        <div className="flex gap-2 items-center justify-between">
+                                            <span className="text-[10px] w-8">總額:</span>
+                                            <input type="number" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/>
                                         </div>
-                                        <div className="flex gap-2 items-center">
-                                            <span className="text-[10px] w-12 text-green-300">現金:</span>
-                                            <input type="number" value={tempCashBudget} onChange={e=>setTempCashBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600"/>
+                                        <div className="flex gap-2 items-center justify-between">
+                                            <span className="text-[10px] w-8 text-green-300">現金:</span>
+                                            <input type="number" value={tempCashBudget} onChange={e=>setTempCashBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/>
                                         </div>
-                                        <button onClick={handleSaveBudget} className="text-xs bg-green-600 text-white py-1 rounded">確認</button>
+                                        <div className="flex gap-2 items-center justify-between">
+                                            <span className="text-[10px] w-8 text-blue-300">IC卡:</span>
+                                            <input type="number" value={tempIcBudget} onChange={e=>setTempIcBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/>
+                                        </div>
+                                        <button onClick={handleSaveBudget} className="text-xs bg-green-600 text-white py-1 rounded w-full mt-1">確認儲存</button>
                                     </div>
                                 ) : (
-                                    <div className="text-3xl text-yellow-400 font-bold tracking-tighter">¥{remainingBudget.toLocaleString()}</div>
+                                    <div className="flex gap-4">
+                                        <div>
+                                            <div className="text-3xl text-yellow-400 font-bold tracking-tighter">¥{remainingBudget.toLocaleString()}</div>
+                                            <div className="text-[9px] text-[var(--text-muted)]">剩餘總額</div>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                             <div className="text-right">
@@ -971,6 +995,11 @@
                                 );
                             })}
                         </div>
+                        
+                        {/* New Date Picker Field */}
+                        <div className="mb-2">
+                             <input type="date" value={newExp.date} onChange={e=>setNewExp({...newExp, date:e.target.value})} className="w-full bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]" />
+                        </div>
 
                         <div className="flex flex-wrap gap-2 mb-2"><input type="text" placeholder="項目" value={newExp.item} onChange={e=>setNewExp({...newExp,item:e.target.value})} className="flex-[2] min-w-[120px] bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]"/><div className="flex-[1] flex border border-[var(--border-color)] rounded min-w-[110px]"><input type="number" placeholder="金額" value={newExp.cost} onChange={e=>setNewExp({...newExp,cost:e.target.value})} className="w-full bg-[var(--bg-input)] p-2 text-xs text-[var(--text-main)] outline-none"/><button onClick={()=>setNewExp({...newExp,currency:newExp.currency==='JPY'?'TWD':'JPY'})} className="px-2 bg-slate-700 text-[10px] text-white shrink-0">{newExp.currency}</button></div></div>
                         <div className="flex justify-between items-center flex-wrap gap-2">
@@ -1002,7 +1031,10 @@
                                             <TypeIcon size={14} />
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-bold">{e.item}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold">{e.item}</span>
+                                                <span className="text-[9px] text-[var(--text-muted)] bg-[var(--bg-input)] px-1 rounded">{e.date}</span>
+                                            </div>
                                             <span className="text-[9px] text-[var(--text-muted)]">{e.payer==='partner'?'(代墊)':'(自用)'} · {e.method}</span>
                                         </div>
                                     </div>
@@ -1568,7 +1600,7 @@
             const [quests, setQuests, questsOffline] = useFirestoreData(user, tripId, 'quests', INITIAL_QUEST_DATA);
             const [shoppingList, setShoppingList, shoppingOffline] = useFirestoreData(user, tripId, 'shopping', []);
             const [tickets, setTickets, ticketsOffline] = useFirestoreData(user, tripId, 'tickets', []);
-            const [settingsData, updateSettings, settingsOffline] = useFirestoreData(user, tripId, 'settings', { budget: 100000, cashBudget: 50000 }, true);
+            const [settingsData, updateSettings, settingsOffline] = useFirestoreData(user, tripId, 'settings', { budget: 100000, cashBudget: 50000, icBudget: 3000 }, true);
             const [stamps, setStamps, stampsOffline] = useFirestoreData(user, tripId, 'guide_stamps', []);
             const [customSpells, setCustomSpells] = useFirestoreData(user, tripId, 'custom_spells', []);
             const [history, setHistory] = useFirestoreData(user, tripId, 'trans_history', []);
