@@ -74,6 +74,23 @@
             mask-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E");
             mask-mode: alpha;
         }
+        .guild-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 2px solid #fbbf24;
+            position: relative;
+            overflow: hidden;
+        }
+        .guild-card::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(251,191,36,0.1) 0%, transparent 60%);
+            animation: shine 10s infinite linear;
+        }
+        @keyframes shine { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -90,7 +107,8 @@
             TrendingUp, Save, Clock, Map, PieChart, Volume2, Image as ImageIcon, Navigation, Timer, Bus, Car, Ticket,
             Compass, Search, ArrowRightLeft, Landmark, LogOut, User, Star, Check, FileText, CreditCard, Wallet, Users,
             CloudRain, CloudSun, Sun, Share2, Copy, RotateCcw, ScanLine, Calculator, Link as LinkIcon, WifiOff,
-            Umbrella, Wind, Snowflake, Flame, Activity, Banknote, HelpCircle, Mic, Plus, Award, Filter, CheckCircle2
+            Umbrella, Wind, Snowflake, Flame, Activity, Banknote, HelpCircle, Mic, Plus, Award, Filter, CheckCircle2,
+            Crown, QrCode
         } from 'lucide-react';
         
         import { initializeApp } from 'firebase/app';
@@ -145,223 +163,21 @@
         ];
         
         const GUIDE_DETAILS = [ 
-            // --- 歷史 History ---
-            { 
-                id: 'nagoya_castle', 
-                title: '名古屋城', 
-                subtitle: '金鯱閃耀的尾張德川家居城', 
-                tags: ['歷史', '風景', '百大名城'], 
-                image: '🏯', 
-                desc: '日本三名城之一，屋頂上的金鯱是名古屋的象徵。', 
-                content: { 
-                    history: '由德川家康於1612年建造，作為尾張德川家的居城。', 
-                    features: '【本丸御殿】內部金碧輝煌，屏風畫作令人嘆為觀止。', 
-                    tips: '推薦參觀二之丸庭園，或在城內遇見「名古屋款待武將隊」。', 
-                    warning: '天守閣目前因耐震工程閉館中，僅能參觀本丸御殿。' 
-                } 
-            }, 
-            { 
-                id: 'atsuta', 
-                title: '熱田神宮', 
-                subtitle: '心靈寄託千年古剎', 
-                tags: ['歷史', '風景', '神社'], 
-                image: '⛩️', 
-                desc: '供奉三神器之一「草薙劍」，地位僅次於伊勢神宮。', 
-                content: { 
-                    history: '擁有近兩千年歷史，織田信長出征桶狹間前曾在此祈願。', 
-                    features: '著名的「信長壁」與樹齡千年的「大楠」。', 
-                    tips: '境內的「宮吉麵」有美味的碁子麵；別忘了去「清水社」洗眼祈求美肌。', 
-                    warning: '夏季蚊蟲較多，建議噴防蚊液。' 
-                } 
-            }, 
-            { 
-                id: 'inuyama', 
-                title: '犬山城', 
-                subtitle: '國寶五城之一', 
-                tags: ['歷史', '風景', '國寶'], 
-                image: '🏰', 
-                desc: '日本現存最古老的木造天守閣，位於木推川畔的小山丘上。', 
-                content: { 
-                    history: '織田信康於1537年建造，曾是成瀨家的私人城堡。', 
-                    features: '天守閣視野極佳，可俯瞰木曾川全景。', 
-                    tips: '山下的三光稻荷神社有粉紅愛心繪馬，求姻緣超靈驗。', 
-                    warning: '天守閣樓梯非常陡峭（約50度），建議穿著褲裝與好走的鞋。' 
-                } 
-            },
-            {
-                id: 'toyota_museum',
-                title: '豐田產業技術紀念館',
-                subtitle: '見證日本製造業的起點',
-                tags: ['歷史', '室內', '見學'],
-                image: '🏭',
-                desc: '利用豐田自動織機製作所舊廠房改建，展示紡織到汽車的進化史。',
-                content: {
-                    history: '這裡是豐田集團的發祥地，保留了紅磚廠房建築。',
-                    features: '汽車館展示了歷代經典車款與生產線運作演示。',
-                    tips: '門票僅 ¥500，CP值極高，非常適合雨天備案。',
-                    warning: '展館很大，認真逛需要 2-3 小時。'
-                }
-            },
-
-            // --- 購物 Shopping ---
-            { 
-                id: 'osu', 
-                title: '大須商店街', 
-                subtitle: '混搭文化發源地', 
-                tags: ['購物', '美食', '歷史'], 
-                image: '🛍️', 
-                desc: '融合古著、動漫、異國料理與傳統寺廟的活力商店街。', 
-                content: { 
-                    history: '由大須觀音的門前町發展而來，有400多年歷史。', 
-                    features: '超過1200家店鋪，包含 Alice on Wednesday 等特色店。', 
-                    tips: '必吃：李先生的台灣名物炸雞、納屋橋饅頭。每個月18日/28日有古董市集。', 
-                    warning: '範圍很大且巷弄複雜，容易迷路，建議先看好地圖。' 
-                } 
-            }, 
-            { 
-                id: 'sakae', 
-                title: '榮 / 綠洲21', 
-                subtitle: '名古屋時尚中心', 
-                tags: ['購物', '風景', '夜景'], 
-                image: '🌃', 
-                desc: '百貨公司林立的繁華街，綠洲21的水之宇宙船是必拍地標。', 
-                content: { 
-                    history: '名古屋最具代表性的現代化商圈。', 
-                    features: '綠洲21頂層的透明水池屋頂，晚上打燈非常夢幻。', 
-                    tips: '旁邊就是名古屋電視塔（中部電力 MIRAI TOWER），可順道參觀。', 
-                    warning: '綠洲21頂層地板較滑，且晚上風大，請注意安全。' 
-                } 
-            },
-            {
-                id: 'jr_gate_tower',
-                title: 'JR Gate Tower',
-                subtitle: '車站直結購物天堂',
-                tags: ['購物', '美食', '室內'],
-                image: '🏢',
-                desc: '與名古屋車站共構的巨大購物中心，Bic Camera、Uniqlo 旗艦店都在這。',
-                content: {
-                    history: '2017年全面開幕，是名古屋站周邊再開發的核心。',
-                    features: '擁有日本最高的星巴克（15F）與整層的吉卜力共和國。',
-                    tips: '12-13樓的美食街匯集了所有名古屋名物，不用東奔西跑。',
-                    warning: '週末人潮洶湧，餐廳建議避開尖峰時段。'
-                }
-            },
-            {
-                id: 'noritake_garden',
-                title: 'AEON Mall Noritake Garden',
-                subtitle: '森林系最美書店',
-                tags: ['購物', '風景', '室內'],
-                image: '📚',
-                desc: '結合了則武之森瓷器博物館與現代購物中心的複合設施。',
-                content: {
-                    history: '原為世界知名瓷器品牌 Noritake 的工廠舊址。',
-                    features: '蔦屋書店的巨型書牆是熱門打卡點。',
-                    tips: '距離名古屋站步行約 15 分鐘，建議搭公車或計程車。',
-                    warning: '書店內拍照請保持安靜，不要打擾閱讀者。'
-                }
-            },
-
-            // --- 美食 Food ---
-            {
-                id: 'yabaton',
-                title: '矢場味噌豬排',
-                subtitle: '名古屋必吃靈魂美食',
-                tags: ['美食', '歷史'],
-                image: '🐷',
-                desc: '濃郁的赤味噌醬汁淋在剛炸好的豬排上，香氣逼人。',
-                content: {
-                    history: '創業於 1947 年，是味噌豬排的代名詞。',
-                    features: '推薦「鐵板味噌豬排」，上桌時醬汁滋滋作響。',
-                    tips: '本店在矢場町，若不想排隊可去百貨公司分店。',
-                    warning: '口味偏重鹹甜，建議搭配大量高麗菜絲或白飯。'
-                }
-            },
-            {
-                id: 'houraiken',
-                title: '熱田蓬萊軒',
-                subtitle: '鰻魚飯三吃發源地',
-                tags: ['美食', '歷史'],
-                image: '🍱',
-                desc: '排隊也要吃的傳奇鰻魚飯，炭火香氣十足。',
-                content: {
-                    history: '創立於明治 6 年（1873年），註冊了「ひつまぶし」商標。',
-                    features: '獨特的三種吃法：原味、加佐料（海苔/蔥/芥末）、茶泡飯。',
-                    tips: '本店與神宮店通常要排 1-2 小時，建議一開店就去抽整理券。',
-                    warning: '價格較高（約 ¥4,600 起），但絕對物有所值。'
-                }
-            },
-            {
-                id: 'komeda',
-                title: 'Komeda\'s Coffee',
-                subtitle: '名古屋早餐文化',
-                tags: ['美食', '室內'],
-                image: '☕',
-                desc: '「點飲料送早餐」的發源地，體驗在地人的早晨。',
-                content: {
-                    history: '1968 年發源於名古屋，現在全日本都有分店。',
-                    features: '早上 11 點前點飲料，免費送厚片吐司配水煮蛋/紅豆泥。',
-                    tips: '必點「冰與火（Shiro-Noir）」：熱丹麥麵包上有冰淇淋。',
-                    warning: '假日早上通常需要排隊等候入座。'
-                }
-            },
-            {
-                id: 'yamachan',
-                title: '世界之山將',
-                subtitle: '夢幻手羽先（炸雞翅）',
-                tags: ['美食', '夜景'],
-                image: '🍗',
-                desc: '胡椒味強烈的炸雞翅，是名古屋夜晚的最佳下酒菜。',
-                content: {
-                    history: '從一家小居酒屋起家，現在是名古屋的宵夜代名詞。',
-                    features: '雞翅炸得酥脆，胡椒辛辣味讓人一支接一支。',
-                    tips: '吃法有技巧：扭開關節，一口將肉滑出。',
-                    warning: '胡椒味真的很重，不吃辣的人可能要點「少胡椒」。'
-                }
-            },
-
-            // --- 風景 Scenery ---
-            {
-                id: 'port_aquarium',
-                title: '名古屋港水族館',
-                subtitle: '日本最大級水族館',
-                tags: ['風景', '室內', '親子'],
-                image: '🐬',
-                desc: '擁有壯觀的海豚表演與可愛的虎鯨、小白鯨。',
-                content: {
-                    history: '位於名古屋港花園碼頭，分為北館與南館。',
-                    features: '北館主打鯨豚，南館展示南極至赤道的海洋生態。',
-                    tips: '沙丁魚龍捲風餵食秀非常壯觀，務必確認時刻表。',
-                    warning: '海豚表演場地在戶外，夏天請注意防曬。'
-                }
-            },
-            {
-                id: 'higashiyama',
-                title: '東山動植物園',
-                subtitle: '型男大猩猩的家',
-                tags: ['風景', '親子'],
-                image: '🦍',
-                desc: '園區極大，包含動物園、植物園與遊樂園，CP值超高。',
-                content: {
-                    history: '1937年開園，是日本年遊客數第二多的動物園。',
-                    features: '明星動物「夏巴尼」大猩猩以帥氣外表聞名。',
-                    tips: '園內的「東山天空塔」可以眺望名古屋市景。',
-                    warning: '園區非常大且有坡度，請穿好走的鞋子。'
-                }
-            },
-            {
-                id: 'legoland',
-                title: '樂高樂園',
-                subtitle: '色彩繽紛的積木王國',
-                tags: ['風景', '親子', '遊樂園'],
-                image: '🧱',
-                desc: '適合 2-12 歲兒童的戶外主題樂園，充滿樂高元素。',
-                content: {
-                    history: '2017年開幕，日本唯一的樂高樂園。',
-                    features: 'Miniland 用樂高積木神還原日本各地名勝。',
-                    tips: '如果喜歡水族館，可以買 Sea Life 的套票。',
-                    warning: '成人票價較高，建議提前上網買早鳥票。'
-                }
-            }
+            { id: 'nagoya_castle', title: '名古屋城', subtitle: '金鯱閃耀的尾張德川家居城', tags: ['歷史', '風景', '百大名城'], image: '🏯', desc: '日本三名城之一，屋頂上的金鯱是名古屋的象徵。', content: { history: '由德川家康於1612年建造，作為尾張德川家的居城。', features: '【本丸御殿】內部金碧輝煌，屏風畫作令人嘆為觀止。', tips: '推薦參觀二之丸庭園，或在城內遇見「名古屋款待武將隊」。', warning: '天守閣目前因耐震工程閉館中，僅能參觀本丸御殿。' } }, 
+            { id: 'atsuta', title: '熱田神宮', subtitle: '心靈寄託千年古剎', tags: ['歷史', '風景', '神社'], image: '⛩️', desc: '供奉三神器之一「草薙劍」，地位僅次於伊勢神宮。', content: { history: '擁有近兩千年歷史，織田信長出征桶狹間前曾在此祈願。', features: '著名的「信長壁」與樹齡千年的「大楠」。', tips: '境內的「宮吉麵」有美味的碁子麵；別忘了去「清水社」洗眼祈求美肌。', warning: '夏季蚊蟲較多，建議噴防蚊液。' } }, 
+            { id: 'inuyama', title: '犬山城', subtitle: '國寶五城之一', tags: ['歷史', '風景', '國寶'], image: '🏰', desc: '日本現存最古老的木造天守閣，位於木推川畔的小山丘上。', content: { history: '織田信康於1537年建造，曾是成瀨家的私人城堡。', features: '天守閣視野極佳，可俯瞰木曾川全景。', tips: '山下的三光稻荷神社有粉紅愛心繪馬，求姻緣超靈驗。', warning: '天守閣樓梯非常陡峭（約50度），建議穿著褲裝與好走的鞋。' } },
+            { id: 'toyota_museum', title: '豐田產業技術紀念館', subtitle: '見證日本製造業的起點', tags: ['歷史', '室內', '見學'], image: '🏭', desc: '利用豐田自動織機製作所舊廠房改建，展示紡織到汽車的進化史。', content: { history: '這裡是豐田集團的發祥地，保留了紅磚廠房建築。', features: '汽車館展示了歷代經典車款與生產線運作演示。', tips: '門票僅 ¥500，CP值極高，非常適合雨天備案。', warning: '展館很大，認真逛需要 2-3 小時。' } },
+            { id: 'osu', title: '大須商店街', subtitle: '混搭文化發源地', tags: ['購物', '美食', '歷史'], image: '🛍️', desc: '融合古著、動漫、異國料理與傳統寺廟的活力商店街。', content: { history: '由大須觀音的門前町發展而來，有400多年歷史。', features: '超過1200家店鋪，包含 Alice on Wednesday 等特色店。', tips: '必吃：李先生的台灣名物炸雞、納屋橋饅頭。每個月18日/28日有古董市集。', warning: '範圍很大且巷弄複雜，容易迷路，建議先看好地圖。' } }, 
+            { id: 'sakae', title: '榮 / 綠洲21', subtitle: '名古屋時尚中心', tags: ['購物', '風景', '夜景'], image: '🌃', desc: '百貨公司林立的繁華街，綠洲21的水之宇宙船是必拍地標。', content: { history: '名古屋最具代表性的現代化商圈。', features: '綠洲21頂層的透明水池屋頂，晚上打燈非常夢幻。', tips: '旁邊就是名古屋電視塔（中部電力 MIRAI TOWER），可順道參觀。', warning: '綠洲21頂層地板較滑，且晚上風大，請注意安全。' } },
+            { id: 'jr_gate_tower', title: 'JR Gate Tower', subtitle: '車站直結購物天堂', tags: ['購物', '美食', '室內'], image: '🏢', desc: '與名古屋車站共構的巨大購物中心，Bic Camera、Uniqlo 旗艦店都在這。', content: { history: '2017年全面開幕，是名古屋站周邊再開發的核心。', features: '擁有日本最高的星巴克（15F）與整層的吉卜力共和國。', tips: '12-13樓的美食街匯集了所有名古屋名物，不用東奔西跑。', warning: '週末人潮洶湧，餐廳建議避開尖峰時段。' } },
+            { id: 'noritake_garden', title: 'AEON Mall Noritake Garden', subtitle: '森林系最美書店', tags: ['購物', '風景', '室內'], image: '📚', desc: '結合了則武之森瓷器博物館與現代購物中心的複合設施。', content: { history: '原為世界知名瓷器品牌 Noritake 的工廠舊址。', features: '蔦屋書店的巨型書牆是熱門打卡點。', tips: '距離名古屋站步行約 15 分鐘，建議搭公車或計程車。', warning: '書店內拍照請保持安靜，不要打擾閱讀者。' } },
+            { id: 'yabaton', title: '矢場味噌豬排', subtitle: '名古屋必吃靈魂美食', tags: ['美食', '歷史'], image: '🐷', desc: '濃郁的赤味噌醬汁淋在剛炸好的豬排上，香氣逼人。', content: { history: '創業於 1947 年，是味噌豬排的代名詞。', features: '推薦「鐵板味噌豬排」，上桌時醬汁滋滋作響。', tips: '本店在矢場町，若不想排隊可去百貨公司分店。', warning: '口味偏重鹹甜，建議搭配大量高麗菜絲或白飯。' } },
+            { id: 'houraiken', title: '熱田蓬萊軒', subtitle: '鰻魚飯三吃發源地', tags: ['美食', '歷史'], image: '🍱', desc: '排隊也要吃的傳奇鰻魚飯，炭火香氣十足。', content: { history: '創立於明治 6 年（1873年），註冊了「ひつまぶし」商標。', features: '獨特的三種吃法：原味、加佐料（海苔/蔥/芥末）、茶泡飯。', tips: '本店與神宮店通常要排 1-2 小時，建議一開店就去抽整理券。', warning: '價格較高（約 ¥4,600 起），但絕對物有所值。' } },
+            { id: 'komeda', title: 'Komeda\'s Coffee', subtitle: '名古屋早餐文化', tags: ['美食', '室內'], image: '☕', desc: '「點飲料送早餐」的發源地，體驗在地人的早晨。', content: { history: '1968 年發源於名古屋，現在全日本都有分店。', features: '早上 11 點前點飲料，免費送厚片吐司配水煮蛋/紅豆泥。', tips: '必點「冰與火（Shiro-Noir）」：熱丹麥麵包上有冰淇淋。', warning: '假日早上通常需要排隊等候入座。' } },
+            { id: 'yamachan', title: '世界之山將', subtitle: '夢幻手羽先（炸雞翅）', tags: ['美食', '夜景'], image: '🍗', desc: '胡椒味強烈的炸雞翅，是名古屋夜晚的最佳下酒菜。', content: { history: '從一家小居酒屋起家，現在是名古屋的宵夜代名詞。', features: '雞翅炸得酥脆，胡椒辛辣味讓人一支接一支。', tips: '吃法有技巧：扭開關節，一口將肉滑出。', warning: '胡椒味真的很重，不吃辣的人可能要點「少胡椒」。' } },
+            { id: 'port_aquarium', title: '名古屋港水族館', subtitle: '日本最大級水族館', tags: ['風景', '室內', '親子'], image: '🐬', desc: '擁有壯觀的海豚表演與可愛的虎鯨、小白鯨。', content: { history: '位於名古屋港花園碼頭，分為北館與南館。', features: '北館主打鯨豚，南館展示南極至赤道的海洋生態。', tips: '沙丁魚龍捲風餵食秀非常壯觀，務必確認時刻表。', warning: '海豚表演場地在戶外，夏天請注意防曬。' } },
+            { id: 'higashiyama', title: '東山動植物園', subtitle: '型男大猩猩的家', tags: ['風景', '親子'], image: '🦍', desc: '園區極大，包含動物園、植物園與遊樂園，CP值超高。', content: { history: '1937年開園，是日本年遊客數第二多的動物園。', features: '明星動物「夏巴尼」大猩猩以帥氣外表聞名。', tips: '園內的「東山天空塔」可以眺望名古屋市景。', warning: '園區非常大且有坡度，請穿好走的鞋子。' } },
+            { id: 'legoland', title: '樂高樂園', subtitle: '色彩繽紛的積木王國', tags: ['風景', '親子', '遊樂園'], image: '🧱', desc: '適合 2-12 歲兒童的戶外主題樂園，充滿樂高元素。', content: { history: '2017年開幕，日本唯一的樂高樂園。', features: 'Miniland 用樂高積木神還原日本各地名勝。', tips: '如果喜歡水族館，可以買 Sea Life 的套票。', warning: '成人票價較高，建議提前上網買早鳥票。' } }
         ];
         
         const INITIAL_CHECKLIST = [ { id: 1, text: "護照", checked: false }, { id: 2, text: "網卡/漫遊", checked: false }, { id: 3, text: "日幣現金", checked: false }, { id: 4, text: "行動電源", checked: false }, { id: 5, text: "常用藥品", checked: false }, { id: 6, text: "VJW截圖", checked: false } ];
@@ -388,7 +204,8 @@
                 events: [
                 { id: 'e11', time: "08:00", icon: "Home", title: "冒險開始", desc: "從 Trip & Sleep hostel 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
                 { id: 'e12', time: "08:45", icon: "Utensils", title: "柳橋中央市場", desc: "補給: 生魚片、海鮮巡禮", type: "loot", transportTime: "30m", transportCost: 210, transportMode: "Train", completed: false },
-                { id: 'e13', time: "12:00", icon: "Utensils", title: "午餐: 鳥開総本家", desc: "獲得物品: 金賞親子丼", type: "loot", transportTime: "15m", transportCost: 0, transportMode: "Footprints", completed: false },
+                { id: 'e12_5', time: "10:15", icon: "ShoppingBag", title: "JR Gate Tower", desc: "吉卜力共和國(1F)、BicCamera(9F)、Uniqlo", type: "trade", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false },
+                { id: 'e13', time: "12:00", icon: "Utensils", title: "午餐: 鳥開総本家", desc: "獲得物品: 金賞親子丼 (位於 Gate Tower 12F)", type: "loot", transportTime: "0m", transportCost: 0, transportMode: "Footprints", completed: false },
                 { id: 'e14', time: "13:30", icon: "ShoppingBag", title: "大須商店街", desc: "交易與探索 (約2小時)", type: "action", transportTime: "20m", transportCost: 210, transportMode: "Train", completed: false },
                 { id: 'e15', time: "15:30", icon: "Coffee", title: "下午茶: Konparu", desc: "補給: 炸蝦三明治", type: "heal", transportTime: "5m", transportCost: 0, transportMode: "Footprints", completed: false },
                 { id: 'e16', time: "18:30", icon: "Utensils", title: "晚餐: 熱田蓬萊軒", desc: "挑戰傳說美食: 鰻魚飯三吃 https://www.houraiken.com/", type: "boss", transportTime: "30m", transportCost: 270, transportMode: "Train", completed: false },
@@ -462,7 +279,11 @@
         // Helper: Call Gemini
         const callGeminiAPI = async (prompt, imageBase64 = null) => {
              const apiKey = ""; // Set API Key
-             if (!apiKey) throw new Error("API Key Missing");
+             
+             // Graceful degradation if API key is missing
+             if (!apiKey) {
+                 return "魔力不足: 請設定 API Key (Mock Result)";
+             }
              
              const payload = {
                  contents: [{
@@ -473,13 +294,17 @@
                  }]
              };
 
-             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify(payload)
-             });
-             const data = await response.json();
-             return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+             try {
+                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify(payload)
+                 });
+                 const data = await response.json();
+                 return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+             } catch (e) {
+                 throw new Error("連線失敗");
+             }
         };
 
         // --- Hook with Offline Support & LocalStorage Backup ---
@@ -554,8 +379,13 @@
                 const file = e.target.files[0]; if (!file || !uploadingEventId) return;
                 const reader = new FileReader(); reader.onload = (ev) => {
                     const img = new Image(); img.onload = () => {
-                        const c = document.createElement('canvas'); const ctx = c.getContext('2d'); const s = 800/img.width; c.width=Math.min(img.width,800); c.height=img.height*s; ctx.drawImage(img,0,0,c.width,c.height);
-                        const base64 = c.toDataURL('image/jpeg', 0.5);
+                        const c = document.createElement('canvas'); const ctx = c.getContext('2d'); 
+                        // Compress Image (Resized to 600px width, 0.4 quality)
+                        const s = 600/img.width; 
+                        c.width=Math.min(img.width, 600); 
+                        c.height=img.height*s; 
+                        ctx.drawImage(img,0,0,c.width,c.height);
+                        const base64 = c.toDataURL('image/jpeg', 0.4);
                         const newQuests = [...quests]; const day = newQuests[activeLevel].events; const idx = day.findIndex(e=>e.id===uploadingEventId); if(idx>-1){ day[idx].image=base64; setQuests(newQuests); }
                     }; img.src = ev.target.result;
                 }; reader.readAsDataURL(file); e.target.value='';
@@ -1041,7 +871,7 @@
                     <div className="bg-slate-800 border border-slate-700 p-3 mb-4 rounded">
                         <h3 className="font-bold text-pink-300 mb-2 flex gap-2"><ShoppingBag size={16}/> 必買清單 (Shopping)</h3>
                         <div className="flex gap-2 mb-2"><input type="text" placeholder="新增商品..." value={newShopItem} onChange={e=>setNewShopItem(e.target.value)} className="flex-1 bg-slate-900 border-slate-600 p-2 text-xs rounded text-white"/><button onClick={addShopItem}><PlusCircle size={20} className="text-pink-400"/></button></div>
-                        <div className="space-y-1">{shoppingList.map(item=><div key={item.id} className={`flex items-center gap-2 p-2 rounded border border-slate-700 ${item.checked?'opacity-50 line-through bg-slate-900':'bg-slate-800'}`}><div onClick={()=>toggleShop(item.id)} className={`w-4 h-4 border ${item.checked?'bg-pink-500 border-pink-500':'border-slate-500'} rounded-sm flex items-center justify-center cursor-pointer`}>{item.checked&&<Check size={12} className="text-white"/>}</div><span className="flex-1 text-xs">{item.text}</span><button onClick={()=>deleteShopItem(item.id)} className="text-red-400"><Trash2 size={12}/></button></div>)}</div>
+                        <div className="space-y-1">{shoppingList.map(item=><div key={item.id} className={`flex items-center gap-2 p-2 rounded border border-slate-700 ${item.checked?'opacity-50 line-through bg-slate-900':'bg-slate-800'}`}><div onClick={()=>toggleShop(item.id)} className={`w-4 h-4 border ${item.checked?'bg-pink-500 border-pink-500':'border-slate-500'} rounded-sm flex items-center justify-center cursor-pointer`}>{item.checked&&<Check size={12} className="text-white"/>}</div><span className="flex-1 text-xs">{item.text}</span><button onClick={(e)=>{e.stopPropagation();deleteShopItem(item.id)}} className="text-red-400"><Trash2 size={12}/></button></div>)}</div>
                     </div>
 
                     <div className="space-y-1">
@@ -1072,151 +902,9 @@
         
         // --- Guide View ---
         const GuideView = () => {
-            const { user, tripId, quests, setQuests, activeLevel, stamps: globalStamps, setStamps: setGlobalStamps } = useContext(AppContext);
-            const [filterTag, setFilterTag] = useState('All');
             const [expandedGuideId, setExpandedGuideId] = useState(null);
-            
-            // Stamps data hook managed in GuideView context or pass from AppProvider?
-            // Using context data:
-            const stamps = globalStamps;
-            const setStamps = setGlobalStamps;
-
-            const allTags = ['All', ...new Set(GUIDE_DETAILS.flatMap(g => g.tags))];
-            const filteredGuides = filterTag === 'All' ? GUIDE_DETAILS : GUIDE_DETAILS.filter(g => g.tags.includes(filterTag));
-            
-            const progress = Math.round((stamps.length / GUIDE_DETAILS.length) * 100);
-
-            const addToQuest = (place) => {
-                const confirmAdd = confirm(`確定將「${place.title}」加入 Day ${activeLevel} 的行程嗎？`);
-                if (!confirmAdd) return;
-
-                const newEvent = {
-                    id: Date.now().toString(),
-                    time: "12:00", // Default time
-                    title: place.title,
-                    desc: place.subtitle,
-                    icon: "MapPin",
-                    type: "action",
-                    transportTime: "",
-                    transportCost: 0,
-                    transportMode: "Footprints",
-                    tags: place.tags,
-                    completed: false
-                };
-
-                const newQuests = [...quests];
-                newQuests[activeLevel].events.push(newEvent);
-                // Sort by time
-                newQuests[activeLevel].events.sort((a,b)=>a.time.localeCompare(b.time));
-                setQuests(newQuests);
-                
-                confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 }, colors: ['#60A5FA', '#3B82F6'] });
-                alert("已加入今日任務！");
-            };
-
-            const toggleStamp = (id) => {
-                const hasStamp = stamps.includes(id);
-                if (hasStamp) {
-                    setStamps(stamps.filter(s => s !== id));
-                } else {
-                    setStamps([...stamps, id]);
-                    confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#EF4444', '#FCD34D'] });
-                }
-            };
-
             return (
-                <div className="w-full animate-enter pb-20">
-                    {/* Exploration Progress */}
-                    <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg mb-6 relative overflow-hidden">
-                        <div className="flex justify-between items-center mb-2">
-                            <div className="flex items-center gap-2">
-                                <Award className="text-yellow-500" size={20} />
-                                <span className="font-bold text-slate-200 text-sm">地圖探索率</span>
-                            </div>
-                            <span className="font-mono font-bold text-yellow-400">{progress}%</span>
-                        </div>
-                        <div className="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
-                            <div className="bg-yellow-500 h-2.5 rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%` }}></div>
-                        </div>
-                        {progress === 100 && <div className="absolute top-0 right-0 p-1 bg-yellow-500 text-black text-[10px] font-bold">完全攻略!</div>}
-                    </div>
-
-                    {/* Tag Filter */}
-                    <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
-                        {allTags.map(tag => (
-                            <button 
-                                key={tag} 
-                                onClick={()=>setFilterTag(tag)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold border whitespace-nowrap transition-colors flex items-center gap-1 ${filterTag === tag ? 'bg-blue-600 border-blue-400 text-white' : 'bg-slate-800 border-slate-600 text-slate-400 hover:bg-slate-700'}`}
-                            >
-                                {tag === 'All' ? <Filter size={12}/> : `#${tag}`}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Guide Cards */}
-                    <div className="space-y-4">
-                        {filteredGuides.map((place) => {
-                            const isStamped = stamps.includes(place.id);
-                            return (
-                                <div key={place.id} className="bg-slate-800 border-2 border-slate-600 rounded-lg overflow-hidden transition-all duration-300 relative group">
-                                    {/* Stamp Overlay */}
-                                    {isStamped && (
-                                        <div className="absolute top-4 right-4 z-20 pointer-events-none animate-in zoom-in spin-in-12 duration-500">
-                                            <div className="stamp-mark text-red-500 border-red-500 opacity-80 text-xl border-4 p-2 rounded-full transform -rotate-12 bg-slate-900/10 backdrop-blur-sm shadow-lg">
-                                                攻略済
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="p-4 cursor-pointer hover:bg-slate-700/50 flex items-center gap-4 relative z-10" onClick={() => setExpandedGuideId(expandedGuideId === place.id ? null : place.id)}>
-                                        <div className="text-4xl filter drop-shadow-lg">{place.image}</div>
-                                        <div className="flex-1">
-                                            <h3 className="font-bold text-lg text-yellow-400 flex items-center gap-2">
-                                                {place.title}
-                                                {isStamped && <CheckCircle2 size={16} className="text-green-500" />}
-                                            </h3>
-                                            <p className="text-xs text-slate-400 mb-1">{place.subtitle}</p>
-                                            <div className="flex gap-1 flex-wrap">
-                                                {place.tags.map(tag => (<span key={tag} className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-blue-300 border border-slate-600">#{tag}</span>))}
-                                            </div>
-                                        </div>
-                                        <div className={`transition-transform duration-300 ${expandedGuideId === place.id ? 'rotate-180' : ''}`}>
-                                            <ArrowDown size={16} className="text-slate-500" />
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded Content */}
-                                    {expandedGuideId === place.id && (
-                                        <div className="p-4 pt-0 border-t border-slate-700 bg-slate-900/50 animate-in slide-in-from-top-2">
-                                            <div className="text-sm text-slate-300 mb-4 leading-relaxed mt-4">{place.desc}</div>
-                                            
-                                            {/* Action Buttons */}
-                                            <div className="flex gap-2 mb-6">
-                                                <button onClick={() => toggleStamp(place.id)} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 border transition-all ${isStamped ? 'bg-red-900/20 border-red-500 text-red-400' : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>
-                                                    <Award size={16}/> {isStamped ? "取消打卡" : "打卡蓋章"}
-                                                </button>
-                                                <button onClick={() => addToQuest(place)} className="flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 transition-all">
-                                                    <PlusCircle size={16}/> 加入今日任務
-                                                </button>
-                                                <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.title)}`, '_blank')} className="px-4 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white border border-slate-500 transition-all">
-                                                    <MapPin size={16}/> 導航
-                                                </button>
-                                            </div>
-
-                                            <div className="space-y-3 text-xs">
-                                                <div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-blue-400 mb-1 flex items-center gap-2"><Clock size={12}/> 歷史小知識</h4><p className="text-slate-400">{place.content.history}</p></div>
-                                                <div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-yellow-400 mb-1 flex items-center gap-2"><Star size={12} /> 特色與必看</h4><p className="text-slate-400">{place.content.features}</p></div>
-                                                <div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-green-400 mb-1 flex items-center gap-2"><MapPin size={12}/> 攻略 Tips</h4><p className="text-slate-400">{place.content.tips}</p></div>
-                                                <div className="bg-red-900/20 p-3 rounded border border-red-900/50"><h4 className="font-bold text-red-400 mb-1 flex items-center gap-2"><AlertTriangle size={12}/> 注意事項</h4><p className="text-red-200/80">{place.content.warning}</p></div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                <div className="w-full animate-enter pb-20"><div className="space-y-4">{GUIDE_DETAILS.map((place) => (<div key={place.id} className="bg-slate-800 border-2 border-slate-600 rounded-lg overflow-hidden transition-all duration-300"><div className="p-4 cursor-pointer hover:bg-slate-700/50 flex items-center gap-4" onClick={() => setExpandedGuideId(expandedGuideId === place.id ? null : place.id)}><div className="text-4xl">{place.image}</div><div className="flex-1"><h3 className="font-bold text-lg text-yellow-400">{place.title}</h3><p className="text-xs text-slate-400 mb-1">{place.subtitle}</p><div className="flex gap-1 flex-wrap">{place.tags.map(tag => (<span key={tag} className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-blue-300 border border-slate-600">#{tag}</span>))}</div></div><div className={`transition-transform duration-300 ${expandedGuideId === place.id ? 'rotate-180' : ''}`}><ArrowDown size={16} className="text-slate-500" /></div></div>{expandedGuideId === place.id && (<div className="p-4 pt-0 border-t border-slate-700 bg-slate-900/50 animate-in slide-in-from-top-2"><div className="text-sm text-slate-300 mb-4 leading-relaxed mt-4">{place.desc}</div><div className="space-y-3 text-xs"><div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-blue-400 mb-1 flex items-center gap-2"><Clock size={12}/> 歷史小知識</h4><p className="text-slate-400">{place.content.history}</p></div><div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-yellow-400 mb-1 flex items-center gap-2"><Star size={12} /> 特色與必看</h4><p className="text-slate-400">{place.content.features}</p></div><div className="bg-slate-800 p-3 rounded border border-slate-700"><h4 className="font-bold text-green-400 mb-1 flex items-center gap-2"><MapPin size={12}/> 攻略 Tips</h4><p className="text-slate-400">{place.content.tips}</p></div><div className="bg-red-900/20 p-3 rounded border border-red-900/50"><h4 className="font-bold text-red-400 mb-1 flex items-center gap-2"><AlertTriangle size={12}/> 注意事項</h4><p className="text-red-200/80">{place.content.warning}</p></div></div></div>)}</div>))}</div></div>
             );
         };
 
@@ -1402,7 +1090,7 @@
 
         // --- Info View (Hub) ---
         const InfoView = () => {
-            const { user, checklist, setChecklist, tickets, setTickets, tripId, setTripId, weatherTemp, setQuests, isOffline, exchangeRate } = useContext(AppContext);
+            const { user, checklist, setChecklist, tickets, setTickets, tripId, setTripId, weatherTemp, setQuests, isOffline, exchangeRate, stats, weatherForecast, quests } = useContext(AppContext);
             const [newTicket, setNewTicket] = useState({ title: "", type: "Flight", image: "" });
             const [isEditingTicket, setIsEditingTicket] = useState(false);
             const [tempTripId, setTempTripId] = useState(tripId);
@@ -1410,18 +1098,29 @@
             
             // Currency Calculator State
             const [calcAmount, setCalcAmount] = useState("");
+            const [calcDir, setCalcDir] = useState('J2T'); // 'J2T' (JPY->TWD) or 'T2J' (TWD->JPY)
             
             // SOS Modal State
             const [sosModalContent, setSosModalContent] = useState(null);
             // Call Confirmation State
             const [confirmCall, setConfirmCall] = useState(null);
+            
+            // Ticket Lightbox State
+            const [viewingTicket, setViewingTicket] = useState(null);
+            
+            // Checklist Add State
+            const [newItemText, setNewItemText] = useState("");
 
             const handleTicketUpload = (e) => {
                 const file=e.target.files[0]; if(!file)return;
                 const r=new FileReader(); r.onload=ev=>{ 
                     const img = new Image(); img.onload = () => {
-                        const c = document.createElement('canvas'); const ctx = c.getContext('2d'); const s = 800/img.width; c.width=Math.min(img.width,800); c.height=img.height*s; ctx.drawImage(img,0,0,c.width,c.height);
-                        setNewTicket({...newTicket, image: c.toDataURL('image/jpeg', 0.5)});
+                        const c = document.createElement('canvas'); const ctx = c.getContext('2d'); 
+                        const s = 600/img.width; 
+                        c.width=Math.min(img.width, 600); 
+                        c.height=img.height*s; 
+                        ctx.drawImage(img,0,0,c.width,c.height);
+                        setNewTicket({...newTicket, image: c.toDataURL('image/jpeg', 0.4)});
                     }; img.src = ev.target.result;
                 }; r.readAsDataURL(file);
             };
@@ -1429,51 +1128,95 @@
             const deleteTicket = (id) => { if(confirm("刪除票券？")) setTickets(tickets.filter(t=>t.id!==id)); };
             const joinTrip = () => { if(confirm("切換旅程將會重新載入資料，確定嗎？")) { setTripId(tempTripId); localStorage.setItem('tripId', tempTripId); window.location.reload(); }};
             const resetQuests = () => { if(confirm("⚠️ 警告：這將會清除所有行程變更並恢復預設值。確定嗎？")) { setQuests(INITIAL_QUEST_DATA); alert("已重置行程！"); } };
-
-            // Improved Weather/Outfit Logic
-            const getWeatherDetails = (t) => {
-                if (t <= 5) return { text: "極寒 (Freezing)", icon: Snowflake, color: "text-blue-300", advice: "發熱衣、羽絨外套、圍巾、手套 (洋蔥式穿搭)" };
-                if (t <= 12) return { text: "寒冷 (Cold)", icon: Wind, color: "text-cyan-300", advice: "厚大衣、毛衣、長褲 (注意保暖)" };
-                if (t <= 20) return { text: "涼爽 (Cool)", icon: Cloud, color: "text-green-300", advice: "薄外套、長袖上衣、牛仔褲 (早晚溫差大)" };
-                if (t <= 28) return { text: "溫暖 (Warm)", icon: Sun, color: "text-orange-300", advice: "短袖搭配薄襯衫、透氣長褲" };
-                return { text: "炎熱 (Hot)", icon: Flame, color: "text-red-400", advice: "短袖、短褲、防曬乳、墨鏡 (多補充水分)" };
+            
+            const addChecklistItem = () => {
+                if(!newItemText.trim()) return;
+                setChecklist([...checklist, { id: Date.now(), text: newItemText, checked: false }]);
+                setNewItemText("");
             };
-            const weatherInfo = getWeatherDetails(weatherTemp);
-            const WeatherIcon = weatherInfo.icon;
+            const deleteChecklistItem = (id) => {
+                if(confirm("刪除項目?")) setChecklist(checklist.filter(i => i.id !== id));
+            };
+
+            // Improved Weather/Outfit Logic (Reuse)
+            const getWeatherDetails = (t) => {
+                if (t <= 5) return { text: "極寒", icon: Snowflake, color: "text-blue-300" };
+                if (t <= 12) return { text: "寒冷", icon: Wind, color: "text-cyan-300" };
+                if (t <= 20) return { text: "涼爽", icon: Cloud, color: "text-green-300" };
+                if (t <= 28) return { text: "溫暖", icon: Sun, color: "text-orange-300" };
+                return { text: "炎熱", icon: Flame, color: "text-red-400" };
+            };
+            
+            // Guild Rank Logic
+            const getRank = (xp) => {
+                const lv = Math.floor(xp/1000) + 1;
+                if (lv >= 10) return { title: "傳奇遊俠", color: "text-yellow-400" };
+                if (lv >= 7) return { title: "資深嚮導", color: "text-purple-400" };
+                if (lv >= 4) return { title: "中級探險家", color: "text-blue-400" };
+                return { title: "初級冒險者", color: "text-slate-400" };
+            };
+            const rank = getRank(stats.xp);
 
             return (
                 <div className="w-full animate-enter pb-32 space-y-4">
-                    {/* Status Bar */}
-                    <div className="flex gap-2">
-                        <div className={`flex-1 p-3 rounded flex items-center gap-2 border ${isOffline ? 'bg-red-900/30 border-red-500' : 'bg-green-900/30 border-green-500'}`}>
-                           {isOffline ? <WifiOff className="text-red-400" size={16}/> : <Zap className="text-green-400" size={16}/>}
-                           <span className={`text-xs font-bold ${isOffline?'text-red-300':'text-green-300'}`}>{isOffline ? "離線模式" : "連線正常"}</span>
+                    
+                    {/* Guild Card (Replaces simple Trip ID) */}
+                    <div className="guild-card p-5 rounded-xl shadow-2xl relative">
+                        <div className="relative z-10 flex justify-between items-start">
+                            <div>
+                                <div className={`text-xs font-bold uppercase tracking-widest ${rank.color} mb-1`}>{rank.title}</div>
+                                <div className="text-3xl font-black text-white italic tracking-tighter">LV. {Math.floor(stats.xp/1000)+1}</div>
+                                <div className="text-[10px] text-slate-400 mt-1">累積經驗: {stats.xp} XP</div>
+                            </div>
+                            <Award className={`w-12 h-12 ${rank.color} opacity-80`} />
                         </div>
-                        <div className="flex-1 bg-slate-900/50 border border-slate-700 p-3 rounded flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400">匯率 (JPY→TWD)</span>
-                            <span className="text-xs font-mono font-bold text-yellow-500">{exchangeRate}</span>
+                        <div className="mt-6 relative z-10 bg-black/40 p-3 rounded border border-white/10 backdrop-blur-sm">
+                            <div className="text-[9px] text-slate-400 uppercase font-mono mb-1 flex items-center gap-1"><Users size={9}/> Trip ID (Share Code)</div>
+                            <div className="flex gap-2">
+                                <input type="text" value={tempTripId} onChange={e=>setTempTripId(e.target.value)} className="flex-1 bg-transparent border-none text-white font-mono text-sm outline-none tracking-wider font-bold" />
+                                <button onClick={joinTrip} className="text-[10px] bg-white/10 hover:bg-white/20 px-3 rounded text-white transition">切換</button>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Weather & Outfit Card */}
-                    <div className="bg-slate-800 border border-blue-400/50 p-4 rounded relative overflow-hidden">
-                        <div className="flex items-start justify-between mb-3">
-                            <div>
-                                <div className="text-xs text-blue-400 font-bold mb-1 flex items-center gap-2"><MapPin size={12}/> 名古屋 (Nagoya)</div>
-                                <div className="text-4xl font-bold text-white tracking-tighter">{weatherTemp}°C</div>
-                                <div className={`text-sm font-bold ${weatherInfo.color} flex items-center gap-1`}>
-                                    <WeatherIcon size={14} /> {weatherInfo.text}
-                                </div>
-                            </div>
-                            <Shirt className={`w-12 h-12 ${weatherInfo.color} opacity-80`} strokeWidth={1} />
-                        </div>
-                        <div className="bg-slate-900/50 p-3 rounded border border-slate-700/50">
-                            <div className="text-[10px] text-slate-400 mb-1 uppercase tracking-wider">OUTFIT ADVICE</div>
-                            <div className="text-xs text-slate-200 leading-relaxed">{weatherInfo.advice}</div>
+                    {/* Quick Links */}
+                    <div className="grid grid-cols-3 gap-2">
+                        <button onClick={() => window.open('https://www.vjw.digital.go.jp/', '_blank')} className="bg-slate-800 p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                            <QrCode size={20} className="text-pink-400"/>
+                            <span className="text-[9px]">VJW</span>
+                        </button>
+                        <button onClick={() => window.open('https://www.google.com/maps', '_blank')} className="bg-slate-800 p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                            <Map size={20} className="text-green-400"/>
+                            <span className="text-[9px]">地圖</span>
+                        </button>
+                        <button onClick={() => window.open('https://www.kotsu.city.nagoya.jp/en/pc/subway/img/subway_route_map.pdf', '_blank')} className="bg-slate-800 p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                            <Train size={20} className="text-blue-400"/>
+                            <span className="text-[9px]">地鐵圖</span>
+                        </button>
+                    </div>
+
+                    {/* 5-Day Weather Forecast */}
+                    <div className="bg-slate-800 border border-slate-700 p-3 rounded overflow-hidden">
+                        <h3 className="font-bold text-slate-300 text-xs mb-3 flex items-center gap-2"><CloudSun size={14}/> 未來天氣預報</h3>
+                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                            {quests.map((q, idx) => {
+                                const w = weatherForecast[idx] || {};
+                                if (!w.max) return null;
+                                const info = getWeatherDetails(w.max);
+                                const WIcon = info.icon;
+                                return (
+                                    <div key={idx} className="flex-shrink-0 w-20 bg-slate-900 p-2 rounded border border-slate-700 flex flex-col items-center text-center">
+                                        <div className="text-[9px] text-slate-500 mb-1">{idx===0?'今天':`Day ${idx}`}</div>
+                                        <WIcon size={20} className={info.color} />
+                                        <div className="text-xs font-bold text-white mt-1">{w.max}°</div>
+                                        <div className="text-[9px] text-slate-400">{w.min}°</div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
                     
-                    {/* Emergency Hub */}
+                    {/* Emergency Hub (Existing) */}
                     <div className="grid grid-cols-3 gap-2">
                          <button onClick={() => setConfirmCall({num: '110', name: '警察'})} className="bg-red-900/40 border border-red-600 p-3 rounded flex flex-col items-center justify-center gap-1 hover:bg-red-900/60 transition">
                              <Siren className="text-red-500" size={24} />
@@ -1489,7 +1232,7 @@
                          </button>
                     </div>
 
-                    {/* Call Confirmation Modal (Safeguard) */}
+                    {/* Call Confirmation Modal (Safeguard) (Existing) */}
                     {confirmCall && (
                         <div className="fixed inset-0 z-[70] bg-black/90 flex flex-col items-center justify-center p-6 animate-in fade-in duration-200" onClick={() => setConfirmCall(null)}>
                             <div className="bg-slate-900 border-2 border-red-500 p-6 rounded-xl w-full max-w-sm text-center shadow-[0_0_50px_rgba(239,68,68,0.5)] relative overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -1505,7 +1248,7 @@
                         </div>
                     )}
 
-                    {/* SOS Modal */}
+                    {/* SOS Modal (Existing) */}
                     {sosModalContent && (
                         <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-6 animate-in fade-in duration-200" onClick={() => setSosModalContent(null)}>
                             <div className="text-center space-y-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
@@ -1531,35 +1274,70 @@
 
                     {/* Currency Converter Widget */}
                     <div className="bg-slate-800 border border-slate-700 p-4 rounded">
-                        <h3 className="font-bold text-slate-300 mb-3 flex items-center gap-2"><Calculator size={16}/> 快速匯率換算</h3>
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-slate-300 flex items-center gap-2"><Calculator size={16}/> 快速匯率換算</h3>
+                            <button onClick={()=>setCalcDir(calcDir==='J2T'?'T2J':'J2T')} className="text-[10px] bg-slate-700 px-2 py-1 rounded border border-slate-600 flex items-center gap-1 hover:bg-slate-600 transition">
+                                {calcDir==='J2T' ? '日 ⮕ 台' : '台 ⮕ 日'} <RotateCcw size={10}/>
+                            </button>
+                        </div>
                         <div className="flex items-center gap-2">
                             <div className="flex-1 relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">JPY</span>
-                                <input type="number" placeholder="日幣金額" value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded pl-10 p-2 text-white outline-none focus:border-yellow-500 font-mono" />
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">{calcDir==='J2T'?'JPY':'TWD'}</span>
+                                <input type="number" placeholder="金額" value={calcAmount} onChange={(e) => setCalcAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded pl-10 p-2 text-white outline-none focus:border-yellow-500 font-mono" />
                             </div>
                             <ArrowRightLeft className="text-slate-500" size={16} />
-                            <div className="flex-1 bg-slate-900/50 border border-slate-700 rounded p-2 text-right font-mono text-yellow-400 font-bold">
-                                {calcAmount ? `≈ $${Math.round(calcAmount * exchangeRate).toLocaleString()}` : "$0"}
+                            <div className="flex-1 bg-slate-900/50 border border-slate-700 rounded p-2 text-right font-mono text-yellow-400 font-bold flex justify-between items-center px-3">
+                                <span className="text-[10px] text-slate-500">{calcDir==='J2T'?'TWD':'JPY'}</span>
+                                <span>{calcAmount ? `≈ ${Math.round(calcDir==='J2T' ? calcAmount * exchangeRate : calcAmount / exchangeRate).toLocaleString()}` : "0"}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-slate-800 border border-blue-500 p-4 rounded relative overflow-hidden">
-                        <div className="absolute top-0 right-0 bg-blue-600 text-[10px] px-2 text-white font-bold">TRIP ID</div>
-                        <h3 className="font-bold text-blue-300 mb-2 flex items-center gap-2"><Users size={16}/> 協作旅程</h3>
-                        <div className="flex gap-2"><input type="text" value={tempTripId} onChange={e=>setTempTripId(e.target.value)} className="flex-1 bg-slate-900 border-slate-600 p-2 text-xs rounded text-white font-mono"/><button onClick={joinTrip} className="bg-blue-600 px-3 text-xs rounded text-white">加入/切換</button></div>
-                        <div className="text-[10px] text-slate-500 mt-1">將此 ID 分享給朋友即可共同編輯。</div>
-                    </div>
-
+                    {/* Tickets Wallet */}
                     <div className="bg-slate-800 border border-green-500 p-4 rounded">
                         <div className="flex justify-between mb-3"><h3 className="font-bold text-green-300 flex items-center gap-2"><Ticket size={16}/> 票券夾 (Wallet)</h3><button onClick={()=>setIsEditingTicket(true)} className="text-xs bg-slate-700 px-2 rounded"><PlusCircle size={14}/></button></div>
                         {isEditingTicket && <div className="mb-4 bg-slate-900 p-3 rounded"><input type="text" placeholder="票券名稱 (如: 虎航去程)" value={newTicket.title} onChange={e=>setNewTicket({...newTicket,title:e.target.value})} className="w-full mb-2 bg-slate-800 border-slate-600 p-2 text-xs text-white"/><input type="file" onChange={handleTicketUpload} className="text-xs text-slate-400 mb-2"/><button onClick={saveTicket} className="w-full bg-green-600 text-white text-xs py-1 rounded">新增票券</button></div>}
-                        <div className="grid grid-cols-2 gap-2">{tickets.map(t=><div key={t.id} onClick={()=>t.image && window.open(t.image)} className="bg-slate-900 p-2 rounded border border-slate-700 relative cursor-pointer ticket-edge"><div className="text-xs font-bold mb-1">{t.title}</div><div className="text-[10px] bg-slate-800 px-1 rounded inline-block">{t.type}</div>{t.image && <div className="absolute top-2 right-2 text-green-500"><ImageIcon size={14}/></div>}<button onClick={(e)=>{e.stopPropagation();deleteTicket(t.id)}} className="absolute bottom-2 right-2 text-red-400"><Trash2 size={12}/></button></div>)}</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {tickets.map(t=> (
+                                <div key={t.id} onClick={()=>t.image && setViewingTicket(t)} className="bg-slate-900 p-2 rounded border border-slate-700 relative cursor-pointer ticket-edge group hover:border-green-500/50 transition">
+                                    <div className="text-xs font-bold mb-1">{t.title}</div>
+                                    <div className="text-[10px] bg-slate-800 px-1 rounded inline-block">{t.type}</div>
+                                    {t.image && <div className="absolute top-2 right-2 text-green-500"><ImageIcon size={14}/></div>}
+                                    <button onClick={(e)=>{e.stopPropagation();deleteTicket(t.id)}} className="absolute bottom-2 right-2 text-red-400 opacity-0 group-hover:opacity-100 transition"><Trash2 size={12}/></button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
+                    {/* Ticket Lightbox */}
+                    {viewingTicket && (
+                        <div className="fixed inset-0 z-[80] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-200" onClick={() => setViewingTicket(null)}>
+                            <div className="max-w-full max-h-full relative">
+                                <img src={viewingTicket.image} className="max-w-full max-h-[80vh] rounded shadow-2xl object-contain" />
+                                <div className="absolute -bottom-10 left-0 w-full text-center text-white font-bold">{viewingTicket.title}</div>
+                                <button onClick={() => setViewingTicket(null)} className="absolute -top-12 right-0 text-white p-2 bg-slate-800/50 rounded-full"><X size={24}/></button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Checklist */}
                     <div className="bg-slate-800 border border-slate-600 p-4 rounded">
-                        <h3 className="font-bold text-slate-300 mb-3 flex gap-2"><Shield size={16}/> 裝備檢查</h3>
-                        <div className="space-y-1">{checklist.map(i=><div key={i.id} onClick={()=>setChecklist(checklist.map(x=>x.id===i.id?{...x,checked:!x.checked}:x))} className={`flex items-center gap-2 p-2 rounded border border-slate-700 ${i.checked?'opacity-50 line-through bg-slate-900':'bg-slate-800'}`}><div className={`w-4 h-4 border ${i.checked?'bg-green-600':'border-slate-500'} rounded-sm flex items-center justify-center`}>{i.checked&&<Check size={12} className="text-white"/>}</div><span className="text-xs">{i.text}</span></div>)}</div>
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-slate-300 flex gap-2"><Shield size={16}/> 裝備檢查</h3>
+                        </div>
+                        <div className="space-y-1 mb-3">
+                            {checklist.map(i => (
+                                <div key={i.id} onClick={()=>setChecklist(checklist.map(x=>x.id===i.id?{...x,checked:!x.checked}:x))} className={`flex items-center gap-2 p-2 rounded border border-slate-700 group cursor-pointer ${i.checked?'opacity-50 line-through bg-slate-900':'bg-slate-800'}`}>
+                                    <div className={`w-4 h-4 border ${i.checked?'bg-green-600':'border-slate-500'} rounded-sm flex items-center justify-center`}>{i.checked&&<Check size={12} className="text-white"/>}</div>
+                                    <span className="text-xs flex-1">{i.text}</span>
+                                    <button onClick={(e)=>{e.stopPropagation(); deleteChecklistItem(i.id)}} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={12}/></button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <input type="text" placeholder="新增物品..." value={newItemText} onChange={e=>setNewItemText(e.target.value)} className="flex-1 bg-slate-900 border border-slate-600 rounded p-2 text-xs text-white"/>
+                            <button onClick={addChecklistItem} className="bg-slate-700 text-white px-3 rounded text-xs"><Plus size={14}/></button>
+                        </div>
                     </div>
 
                     <button onClick={resetQuests} className="w-full bg-red-900/30 border border-red-900 text-red-400 py-3 rounded text-xs flex items-center justify-center gap-2 mt-8 hover:bg-red-900/50 transition"><RotateCcw size={14}/> ⚠️ 重置行程資料 (修復缺失)</button>
@@ -1590,10 +1368,6 @@
                             else await signInAnonymously(getAuth(app));
                         }
                     } else if (USE_REAL_GOOGLE_AUTH) {
-                        // In preview environment, popup might be blocked. 
-                        // If user hasn't clicked login, this might fail or do nothing.
-                        // We do nothing here and let the LoginView handle it via button click.
-                    } else {
                         await signInAnonymously(getAuth(app)); 
                     }
                 };
@@ -1632,6 +1406,8 @@
             const [tickets, setTickets, ticketsOffline] = useFirestoreData(user, tripId, 'tickets', []);
             const [settingsData, updateSettings, settingsOffline] = useFirestoreData(user, tripId, 'settings', { budget: 100000, cashBudget: 50000 }, true);
             const [stamps, setStamps, stampsOffline] = useFirestoreData(user, tripId, 'guide_stamps', []);
+            const [customSpells, setCustomSpells] = useFirestoreData(user, tripId, 'custom_spells', []);
+            const [history, setHistory] = useFirestoreData(user, tripId, 'trans_history', []);
             
             const isOffline = checklistOffline || expensesOffline || questsOffline; // Global offline status
 
@@ -1677,8 +1453,8 @@
                  user, tripId, setTripId, checklist, setChecklist, expenses, setExpenses, quests, setQuests, budget, setBudget,
                  shoppingList, setShoppingList, tickets, setTickets, activeTab, setActiveTab, activeLevel, setActiveLevel, 
                  countdown, exchangeRate, weatherForecast, weatherTemp, speakJapanese: speakJapaneseFixed,
-                 stats, isOffline, settingsData, updateSettings, stamps, setStamps
-            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp, speakJapaneseFixed, stats, isOffline, settingsData, updateSettings, stamps]);
+                 stats, isOffline, settingsData, updateSettings, stamps, setStamps, customSpells, setCustomSpells, history, setHistory
+            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp, speakJapaneseFixed, stats, isOffline, settingsData, updateSettings, stamps, customSpells, history]);
 
 
             if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white"><Loader2 className="animate-spin text-yellow-500" size={40}/></div>;
