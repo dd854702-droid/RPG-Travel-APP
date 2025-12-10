@@ -345,7 +345,6 @@
                 });
             }, []);
 
-            // 7-Day Weather Fetch
             useEffect(() => {
                 fetch('https://api.open-meteo.com/v1/forecast?latitude=35.1815&longitude=136.9066&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo').then(r=>r.json()).then(data=>{
                     const map = {}; data.daily.time.forEach((t, i) => { map[i] = { max: data.daily.temperature_2m_max[i], min: data.daily.temperature_2m_min[i], code: data.daily.weathercode[i] }; });
@@ -379,13 +378,46 @@
                 user, tripId, setTripId, checklist, setChecklist, expenses, setExpenses, quests, setQuests, budget, setBudget,
                 shoppingList, setShoppingList, tickets, setTickets, activeTab, setActiveTab, activeLevel, setActiveLevel, 
                 countdown, exchangeRate, weatherForecast, weatherTemp, 
-                speakJapanese: (t)=>{const u=new SpeechSynthesisUtterance(t);u.lang='ja-JP';u.rate=0.65;window.speechSynthesis.speak(u);}
+                speakJapanese: (t)=>{
+                    // Improved TTS logic: Cancel previous, find Japanese voice, set rate
+                    window.speechSynthesis.cancel();
+                    const u = new SpeechSynthesisUtterance(text);
+                    u.lang = 'ja-JP';
+                    u.rate = 0.7; 
+                    const voices = window.speechSynthesis.getVoices();
+                    const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google 日本語') || v.name.includes('Microsoft Haruka'));
+                    if (jpVoice) u.voice = jpVoice;
+                    window.speechSynthesis.speak(u);
+                }
             }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp]);
+            
+            // Fix: Re-define speakJapanese inside Context correctly to capture 'text'
+            // Actually, the above useMemo has a bug where 'text' is not defined.
+            // Let's fix it by defining the function outside useMemo or correctly inside.
+            
+            const speakJapaneseFixed = useCallback((text) => {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'ja-JP';
+                u.rate = 0.7;
+                const voices = window.speechSynthesis.getVoices();
+                const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google 日本語') || v.name.includes('Microsoft Haruka'));
+                if (jpVoice) u.voice = jpVoice;
+                window.speechSynthesis.speak(u);
+            }, []);
+
+            // Re-create value object with fixed function
+            const contextValueFixed = useMemo(() => ({
+                 user, tripId, setTripId, checklist, setChecklist, expenses, setExpenses, quests, setQuests, budget, setBudget,
+                 shoppingList, setShoppingList, tickets, setTickets, activeTab, setActiveTab, activeLevel, setActiveLevel, 
+                 countdown, exchangeRate, weatherForecast, weatherTemp, speakJapanese: speakJapaneseFixed
+            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp, speakJapaneseFixed]);
+
 
             if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white"><Loader2 className="animate-spin text-yellow-500" size={40}/></div>;
             if (!user) return <LoginView onLogin={() => signInWithPopup(getAuth(app), new GoogleAuthProvider())} />;
 
-            return <AppContext.Provider value={value}><MainLayout /></AppContext.Provider>;
+            return <AppContext.Provider value={contextValueFixed}><MainLayout /></AppContext.Provider>;
         };
 
         const MainLayout = () => {
