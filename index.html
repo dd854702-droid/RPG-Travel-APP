@@ -98,7 +98,7 @@
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-            enableIndexedDbPersistence(db).catch((err) => console.log('Persistence:', err.code));
+            // enableIndexedDbPersistence(db).catch((err) => console.log('Persistence:', err.code));
         } catch (e) { console.error("Firebase Init Error:", e); }
 
         const AppContext = createContext();
@@ -194,31 +194,57 @@
         const TRANSPORT_MODES = [ { id: 'Footprints', icon: Footprints, label: '步行' }, { id: 'Train', icon: Train, label: '電車' }, { id: 'Bus', icon: Bus, label: '公車' }, { id: 'Car', icon: Car, label: '開車' }, { id: 'Plane', icon: Plane, label: '飛機' } ];
 
         // --- Hook with Trip ID Support ---
-        function useFirestoreData(tripId, collectionName, initialData, isObject = false) {
+        function useFirestoreData(user, tripId, collectionName, initialData, isObject = false) {
             const [data, setData] = useState(initialData);
             useEffect(() => {
-                if (!tripId) return;
-                let collectionRef;
-                if (typeof __app_id !== 'undefined') collectionRef = collection(db, 'artifacts', __app_id, 'trips', tripId, collectionName);
-                else collectionRef = collection(db, 'trips', tripId, collectionName);
+                // AUTH GUARD: Don't run if user is not logged in or tripId is missing
+                if (!user || !tripId) return;
 
-                const docRef = doc(collectionRef, 'main'); 
+                let collectionRef;
+                let docRef;
+
+                // STRICT PATH RULE ADHERENCE: /artifacts/{appId}/public/data/{collection}
+                // We use 'trip_data' as the main collection, and use document IDs to separate trips and types.
+                if (typeof __app_id !== 'undefined') {
+                     collectionRef = collection(db, 'artifacts', __app_id, 'public', 'data', 'trip_data');
+                     docRef = doc(collectionRef, `${tripId}_${collectionName}`);
+                } else {
+                     // Fallback for local dev without app_id
+                     collectionRef = collection(db, 'trip_data');
+                     docRef = doc(collectionRef, `${tripId}_${collectionName}`);
+                }
+
                 const unsubscribe = onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) setData(isObject ? docSnap.data() : docSnap.data().items);
-                    else { setDoc(docRef, isObject ? initialData : { items: initialData }); setData(initialData); }
+                    else { 
+                        // Initialize empty/default data if not exists
+                        setDoc(docRef, isObject ? initialData : { items: initialData }).catch(e => console.error("Init data failed", e)); 
+                        setData(initialData); 
+                    }
+                }, (error) => {
+                    console.error(`Error fetching ${collectionName}:`, error);
                 });
                 return () => unsubscribe();
-            }, [tripId, collectionName]);
+            }, [user, tripId, collectionName]);
 
             const updateData = (newData) => {
                 setData(newData);
-                if (!tripId) return;
+                if (!user || !tripId) return;
+                
                 let collectionRef;
-                if (typeof __app_id !== 'undefined') collectionRef = collection(db, 'artifacts', __app_id, 'trips', tripId, collectionName);
-                else collectionRef = collection(db, 'trips', tripId, collectionName);
-                const docRef = doc(collectionRef, 'main');
+                let docRef;
+
+                if (typeof __app_id !== 'undefined') {
+                     collectionRef = collection(db, 'artifacts', __app_id, 'public', 'data', 'trip_data');
+                     docRef = doc(collectionRef, `${tripId}_${collectionName}`);
+                } else {
+                     collectionRef = collection(db, 'trip_data');
+                     docRef = doc(collectionRef, `${tripId}_${collectionName}`);
+                }
+
                 setDoc(docRef, isObject ? newData : { items: newData }).catch(e => {
                     if (e.code === 'resource-exhausted') alert("⚠️ 雲端空間不足，請刪除部分照片。");
+                    else console.error("Save failed", e);
                 });
             };
             return [data, updateData];
@@ -339,7 +365,8 @@
                         <div className="flex flex-wrap gap-2 mb-2"><input type="text" placeholder="項目" value={newExp.item} onChange={e=>setNewExp({...newExp,item:e.target.value})} className="flex-[2] min-w-[120px] bg-slate-900 border-slate-600 p-2 text-xs rounded text-white"/><div className="flex-[1] flex border border-slate-600 rounded min-w-[110px]"><input type="number" placeholder="金額" value={newExp.cost} onChange={e=>setNewExp({...newExp,cost:e.target.value})} className="w-full bg-slate-900 p-2 text-xs text-white outline-none"/><button onClick={()=>setNewExp({...newExp,currency:newExp.currency==='JPY'?'TWD':'JPY'})} className="px-2 bg-slate-700 text-[10px] text-white shrink-0">{newExp.currency}</button></div></div>
                         <div className="flex justify-between items-center flex-wrap gap-2">
                             <div className="flex gap-2">
-                                <select value={newExp.payer} onChange={e=>setNewExp({...newExp,payer:e.target.value})} className="bg-slate-700 text-xs rounded px-1 text-white"><option value="me">我先墊</option><option value="partner">旅伴墊</option></select>
+                                {/* Modified options as requested */}
+                                <select value={newExp.payer} onChange={e=>setNewExp({...newExp,payer:e.target.value})} className="bg-slate-700 text-xs rounded px-1 text-white"><option value="me">自用</option><option value="partner">代墊</option></select>
                                 <select value={newExp.method} onChange={e=>setNewExp({...newExp,method:e.target.value})} className="bg-slate-700 text-xs rounded px-1 text-white"><option value="cash">現金</option><option value="card">刷卡</option><option value="ic">IC卡</option></select>
                             </div>
                             <button onClick={addExpense} className="bg-yellow-600 text-black px-4 py-1 rounded text-xs font-bold">紀錄</button>
@@ -353,7 +380,7 @@
                         <div className="space-y-1">{shoppingList.map(item=><div key={item.id} className={`flex items-center gap-2 p-2 rounded border border-slate-700 ${item.checked?'opacity-50 line-through bg-slate-900':'bg-slate-800'}`}><div onClick={()=>toggleShop(item.id)} className={`w-4 h-4 border ${item.checked?'bg-pink-500 border-pink-500':'border-slate-500'} rounded-sm flex items-center justify-center cursor-pointer`}>{item.checked&&<Check size={12} className="text-white"/>}</div><span className="flex-1 text-xs">{item.text}</span><button onClick={()=>deleteShopItem(item.id)} className="text-red-400"><Trash2 size={12}/></button></div>)}</div>
                     </div>
 
-                    <div className="space-y-1">{expenses.map(e=><div key={e.id} className="flex justify-between items-center p-2 border-b border-slate-800 bg-slate-800/50"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${e.type==='trade'?'bg-pink-300':e.type==='loot'?'bg-yellow-500':'bg-blue-500'}`}></div><div className="flex flex-col"><span className="text-xs">{e.item}</span><span className="text-[9px] text-slate-500">{e.payer==='partner'?'(旅伴墊)':'(我墊)'} · {e.method}</span></div></div><div className="flex items-center gap-2"><span className="text-xs font-mono">¥{e.cost.toLocaleString()}</span><button onClick={()=>deleteExpense(e.id)} className="text-slate-600 hover:text-red-400"><Trash2 size={12}/></button></div></div>)}</div>
+                    <div className="space-y-1">{expenses.map(e=><div key={e.id} className="flex justify-between items-center p-2 border-b border-slate-800 bg-slate-800/50"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${e.type==='trade'?'bg-pink-300':e.type==='loot'?'bg-yellow-500':'bg-blue-500'}`}></div><div className="flex flex-col"><span className="text-xs">{e.item}</span><span className="text-[9px] text-slate-500">{e.payer==='partner'?'(代墊)':'(自用)'} · {e.method}</span></div></div><div className="flex items-center gap-2"><span className="text-xs font-mono">¥{e.cost.toLocaleString()}</span><button onClick={()=>deleteExpense(e.id)} className="text-slate-600 hover:text-red-400"><Trash2 size={12}/></button></div></div>)}</div>
                 </div>
             );
         };
@@ -460,7 +487,26 @@
             const [weatherTemp, setWeatherTemp] = useState(15); 
 
             useEffect(() => {
-                const initAuth = async () => { if (USE_REAL_GOOGLE_AUTH) await signInWithPopup(getAuth(app), new GoogleAuthProvider()).catch(console.error); else await signInAnonymously(getAuth(app)); };
+                const initAuth = async () => { 
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        try {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } catch (e) {
+                            console.error("Custom token auth failed", e);
+                            if (USE_REAL_GOOGLE_AUTH) await signInWithPopup(getAuth(app), new GoogleAuthProvider()).catch(console.error);
+                            else await signInAnonymously(getAuth(app));
+                        }
+                    } else if (USE_REAL_GOOGLE_AUTH) {
+                        // In preview environment, popup might be blocked. 
+                        // If user hasn't clicked login, this might fail or do nothing.
+                        // We do nothing here and let the LoginView handle it via button click.
+                    } else {
+                        await signInAnonymously(getAuth(app)); 
+                    }
+                };
+                
+                initAuth();
+
                 onAuthStateChanged(getAuth(app), u => { 
                     setUser(u); setAuthLoading(false); 
                     if(u && !tripId) { const tid = u.uid.substring(0,6); setTripId(tid); localStorage.setItem('tripId', tid); }
@@ -486,39 +532,22 @@
             }, []);
 
             // Firestore Data (using tripId)
-            const [checklist, setChecklist] = useFirestoreData(tripId, 'checklist', INITIAL_CHECKLIST);
-            const [expenses, setExpenses] = useFirestoreData(tripId, 'expenses', INITIAL_EXPENSES);
-            const [quests, setQuests] = useFirestoreData(tripId, 'quests', INITIAL_QUEST_DATA);
-            const [shoppingList, setShoppingList] = useFirestoreData(tripId, 'shopping', []);
-            const [tickets, setTickets] = useFirestoreData(tripId, 'tickets', []);
-            const [settingsData, updateSettings] = useFirestoreData(tripId, 'settings', { budget: 100000 }, true);
+            const [checklist, setChecklist] = useFirestoreData(user, tripId, 'checklist', INITIAL_CHECKLIST);
+            const [expenses, setExpenses] = useFirestoreData(user, tripId, 'expenses', INITIAL_EXPENSES);
+            const [quests, setQuests] = useFirestoreData(user, tripId, 'quests', INITIAL_QUEST_DATA);
+            const [shoppingList, setShoppingList] = useFirestoreData(user, tripId, 'shopping', []);
+            const [tickets, setTickets] = useFirestoreData(user, tripId, 'tickets', []);
+            const [settingsData, updateSettings] = useFirestoreData(user, tripId, 'settings', { budget: 100000 }, true);
             
             const budget = settingsData?.budget || 100000;
             const setBudget = (val) => updateSettings({ ...settingsData, budget: val });
-
-            const value = useMemo(() => ({
-                user, tripId, setTripId, checklist, setChecklist, expenses, setExpenses, quests, setQuests, budget, setBudget,
-                shoppingList, setShoppingList, tickets, setTickets, activeTab, setActiveTab, activeLevel, setActiveLevel, 
-                countdown, exchangeRate, weatherForecast, weatherTemp, 
-                speakJapanese: (t)=>{
-                    // Improved TTS logic
-                    window.speechSynthesis.cancel();
-                    const u = new SpeechSynthesisUtterance(text);
-                    u.lang = 'ja-JP';
-                    u.rate = 0.7; 
-                    const voices = window.speechSynthesis.getVoices();
-                    const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google 日本語') || v.name.includes('Microsoft Haruka'));
-                    if (jpVoice) u.voice = jpVoice;
-                    window.speechSynthesis.speak(u);
-                }
-            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp]);
             
             // Fix: Re-define speakJapanese inside Context correctly to capture 'text'
             const speakJapaneseFixed = useCallback((text) => {
                 window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance(text);
                 u.lang = 'ja-JP';
-                u.rate = 0.7;
+                u.rate = 0.7; // 設定語速為 0.7
                 const voices = window.speechSynthesis.getVoices();
                 const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google 日本語') || v.name.includes('Microsoft Haruka'));
                 if (jpVoice) u.voice = jpVoice;
