@@ -137,7 +137,6 @@
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, enableIndexedDbPersistence } from 'firebase/firestore';
 
         // --- CONFIGURATION ---
-        // 注意：公開此檔案可能會暴露您的 API Key。建議在正式環境中限制 API Key 的來源網域。
         const USE_REAL_GOOGLE_AUTH = true; 
         const userFirebaseConfig = {
             apiKey: "AIzaSyDuVNALTfclUEXxhlDEolTLX_68mkyW59k",
@@ -1354,18 +1353,18 @@
 
                     {/* Quick Links */}
                     <div className="grid grid-cols-3 gap-2">
-                        <button onClick={() => window.open('https://www.vjw.digital.go.jp/', '_blank')} className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        <a href='https://www.vjw.digital.go.jp/' target='_blank' rel='noopener noreferrer' className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
                             <QrCode size={20} className="text-pink-400"/>
                             <span className="text-[9px]">VJW</span>
-                        </button>
-                        <button onClick={() => window.open('https://www.google.com/maps', '_blank')} className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        </a>
+                        <a href='https://www.google.com/maps/@35.1815,136.9066,12z' target='_blank' rel='noopener noreferrer' className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
                             <Map size={20} className="text-green-400"/>
                             <span className="text-[9px]">地圖</span>
-                        </button>
-                        <button onClick={() => window.open('https://www.nagoya-info.jp/common/pdf/nagoya_route_map_en.pdf', '_blank')} className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
+                        </a>
+                        <a href='https://www.kotsu.city.nagoya.jp/en/pc/SUBWAY/TRP0001067/Subway%20Network%20Map.pdf' target='_blank' rel='noopener noreferrer' className="bg-[var(--bg-card)] p-2 rounded flex flex-col items-center gap-1 hover:bg-slate-700 transition">
                             <Train size={20} className="text-blue-400"/>
                             <span className="text-[9px]">地鐵圖</span>
-                        </button>
+                        </a>
                     </div>
 
                     {/* 5-Day Weather Forecast */}
@@ -1640,20 +1639,10 @@
                 const u = new SpeechSynthesisUtterance(text);
                 u.lang = 'ja-JP';
                 u.rate = 0.7; // 設定語速為 0.7
-                
-                // Ensure voices are loaded
-                const setVoice = () => {
-                    const voices = window.speechSynthesis.getVoices();
-                    const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google 日本語') || v.name.includes('Microsoft Haruka'));
-                    if (jpVoice) u.voice = jpVoice;
-                    window.speechSynthesis.speak(u);
-                };
-
-                if (window.speechSynthesis.getVoices().length === 0) {
-                    window.speechSynthesis.onvoiceschanged = setVoice;
-                } else {
-                    setVoice();
-                }
+                const voices = window.speechSynthesis.getVoices();
+                const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google 日本語') || v.name.includes('Microsoft Haruka'));
+                if (jpVoice) u.voice = jpVoice;
+                window.speechSynthesis.speak(u);
             }, []);
 
             // Re-create value object with fixed function
