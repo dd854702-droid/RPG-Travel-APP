@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>名古屋冒險日誌 | Nagoya Adventure Log</title>
     
     <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoi5ZCN5Y+qk9aF6ZqquZzmXlSIsInNob3J0X25hbWUiOiLlgpLpmprljp8iLCJzdGFydF91cmwiOiIuLyIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwZjE3MmEiLCJ0aGVtZV9jb2xvciI6IiMwZjE3MmEiLCJpY29ucyI6W3sic3JjIjoiaHR0cHM6Ly9jZG4tanRpZmYtY29tLnRpbnlwaXguY29tL3VwbG9hZHMvMjAyMy0xMS0wNy9jbHVlc19tYXBfMTI4eDEyOC5wbmciLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ==">
@@ -55,6 +55,7 @@
             --text-main: #e2e8f0;
             --text-muted: #94a3b8;
             --border-color: #334155;
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
         }
         .light-mode {
             --bg-main: #f1f5f9;
@@ -111,6 +112,9 @@
         /* Drag and Drop Styling */
         .dragging { opacity: 0.5; transform: scale(0.98); }
         .drag-over { border-top: 2px solid #fbbf24; }
+        
+        /* Safe Area Padding for Bottom Nav */
+        .pb-safe { padding-bottom: calc(var(--safe-bottom) + 10px); }
     </style>
 </head>
 <body>
@@ -122,7 +126,7 @@
         import confetti from 'canvas-confetti';
         import html2canvas from 'html2canvas';
         import { 
-            Plane, Train, MapPin, Coffee, Utensils, ShoppingBag, Home, Footprints, Camera, ArrowDown, 
+            Plane, Train, MapPin, Coffee, Utensils, ShoppingBag, Home, Footprints, Camera, ArrowDown, ArrowUp,
             Coins, BookOpen, Scroll, Info, Shield, Zap, Cloud, Calendar, CheckSquare, X, ZoomIn, PlusCircle,
             Edit, Trash2, Globe, Shirt, RefreshCw, Loader2, Phone, Siren, AlertTriangle, ExternalLink, Thermometer,
             TrendingUp, Save, Clock, Map, PieChart, Volume2, Image as ImageIcon, Navigation, Timer, Bus, Car, Ticket,
@@ -328,8 +332,42 @@
                  return `詠唱失敗: ${e.message}`;
              }
         };
+        
+        // --- Scroll To Top Component (New) ---
+        const ScrollToTop = () => {
+            const [visible, setVisible] = useState(false);
+            
+            useEffect(() => {
+                const toggleVisibility = () => {
+                    if (window.scrollY > 300) {
+                        setVisible(true);
+                    } else {
+                        setVisible(false);
+                    }
+                };
+                window.addEventListener('scroll', toggleVisibility);
+                return () => window.removeEventListener('scroll', toggleVisibility);
+            }, []);
+            
+            const scrollToTop = () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            };
+            
+            return (
+                <button 
+                    onClick={scrollToTop}
+                    className={`fixed bottom-24 right-4 z-40 bg-yellow-500 hover:bg-yellow-400 text-black p-3 rounded-full shadow-xl transition-all duration-300 transform ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+                    aria-label="Scroll to top"
+                >
+                    <ArrowUp size={20} strokeWidth={3} />
+                </button>
+            );
+        };
 
-        // --- Hook with Offline Support & LocalStorage Backup (ENHANCED) ---
+        // --- Hook with Offline Support & LocalStorage Backup (ENHANCED - Data Safety) ---
         function useFirestoreData(user, tripId, collectionName, initialData, isObject = false) {
             // 1. Init state: Try to load from localStorage immediately to prevent flash of empty data
             const [data, setData] = useState(() => {
@@ -344,10 +382,17 @@
             });
             
             const [isOffline, setIsOffline] = useState(false);
+            const [loading, setLoading] = useState(true);
 
             // 2. Firestore Sync & Persistence Logic
             useEffect(() => {
-                if (!tripId) return;
+                let unsubscribe = () => {};
+                
+                if (!tripId) {
+                    setLoading(false);
+                    return;
+                }
+                
                 const localKey = `${tripId}_${collectionName}`;
 
                 // Force load local storage again when tripId settles (fixes refresh bug)
@@ -360,39 +405,53 @@
                     } catch (e) { console.error("Re-sync load error", e); }
                 }
 
-                if (!user) { setIsOffline(true); return; }
-
-                let docRef;
-                if (typeof __app_id !== 'undefined') {
-                     docRef = doc(collection(db, 'artifacts', __app_id, 'public', 'data', 'trip_data'), `${tripId}_${collectionName}`);
-                } else {
-                     docRef = doc(collection(db, 'trip_data'), `${tripId}_${collectionName}`);
+                if (!user) { 
+                    setIsOffline(true); 
+                    setLoading(false);
+                    return; 
                 }
 
-                const unsubscribe = onSnapshot(docRef, (docSnap) => {
-                    setIsOffline(docSnap.metadata.fromCache);
-                    if (docSnap.exists()) {
-                        const cloudData = isObject ? docSnap.data() : docSnap.data().items;
-                        if(JSON.stringify(cloudData) !== JSON.stringify(data)) {
-                            setData(cloudData);
-                            localStorage.setItem(localKey, JSON.stringify(cloudData));
-                        }
+                try {
+                    let docRef;
+                    if (typeof __app_id !== 'undefined') {
+                         docRef = doc(collection(db, 'artifacts', __app_id, 'public', 'data', 'trip_data'), `${tripId}_${collectionName}`);
                     } else {
-                        // If cloud is empty but we have local data, SAVE local to cloud (Sync Up)
-                        const currentLocal = localStorage.getItem(localKey);
-                        let dataToSave = initialData;
-                        
-                        if (currentLocal) {
-                            try { dataToSave = JSON.parse(currentLocal); } catch(e){}
-                        }
-                        
-                        // Prevent overwriting with empty initial data if we think we should have data
-                        setDoc(docRef, isObject ? dataToSave : { items: dataToSave }).catch(e => console.error("Init save failed", e));
+                         docRef = doc(collection(db, 'trip_data'), `${tripId}_${collectionName}`);
                     }
-                }, (error) => {
-                    console.error(`Offline or Error fetching ${collectionName}:`, error);
+    
+                    unsubscribe = onSnapshot(docRef, (docSnap) => {
+                        setIsOffline(docSnap.metadata.fromCache);
+                        if (docSnap.exists()) {
+                            const cloudData = isObject ? docSnap.data() : docSnap.data().items;
+                            // Deep comparison simple version
+                            if(JSON.stringify(cloudData) !== JSON.stringify(data)) {
+                                setData(cloudData);
+                                localStorage.setItem(localKey, JSON.stringify(cloudData));
+                            }
+                        } else {
+                            // If cloud is empty but we have local data, SAVE local to cloud (Sync Up)
+                            const currentLocal = localStorage.getItem(localKey);
+                            let dataToSave = initialData;
+                            
+                            if (currentLocal) {
+                                try { dataToSave = JSON.parse(currentLocal); } catch(e){}
+                            }
+                            
+                            // Prevent overwriting with empty initial data if we think we should have data
+                            setDoc(docRef, isObject ? dataToSave : { items: dataToSave }).catch(e => console.error("Init save failed", e));
+                        }
+                        setLoading(false);
+                    }, (error) => {
+                        console.error(`Offline or Error fetching ${collectionName}:`, error);
+                        setIsOffline(true);
+                        setLoading(false);
+                    });
+                } catch (err) {
+                    console.error("Firestore Error:", err);
+                    setLoading(false);
                     setIsOffline(true);
-                });
+                }
+                
                 return () => unsubscribe();
             }, [user, tripId, collectionName]);
 
@@ -413,7 +472,7 @@
                     console.warn("Cloud save failed, data saved locally:", e);
                 });
             };
-            return [data, updateData, isOffline];
+            return [data, updateData, isOffline, loading];
         }
 
         // --- Pie Chart Component ---
@@ -479,6 +538,15 @@
             const [newEventData, setNewEventData] = useState({ time: "10:00", title: "", desc: "", type: "action", locationQuery: "", transportTime: "", transportCost: "", transportMode: "Footprints", tags: "", completed: false });
             const fileInputRef = useRef(null); const [uploadingEventId, setUploadingEventId] = useState(null);
             
+            // Safety Check: Avoid crash if quests is undefined or empty
+            if (!quests || quests.length === 0) return <div className="p-4 text-center text-slate-400"><Loader2 className="animate-spin mx-auto mb-2"/>載入任務中...</div>;
+            
+            // Safety Check: Ensure activeLevel is within bounds
+            const safeActiveLevel = (activeLevel >= 0 && activeLevel < quests.length) ? activeLevel : 0;
+            const currentQuest = quests[safeActiveLevel];
+
+            if (!currentQuest) return <div className="p-4 text-center text-red-400">任務資料讀取錯誤 (LV.{activeLevel})</div>;
+
             const triggerImageUpload = (id) => { setUploadingEventId(id); fileInputRef.current.click(); };
             const handleImageUpload = (e) => {
                 const file = e.target.files[0]; if (!file || !uploadingEventId) return;
@@ -490,7 +558,7 @@
                         c.height=img.height*s; 
                         ctx.drawImage(img,0,0,c.width,c.height);
                         const base64 = c.toDataURL('image/jpeg', 0.4);
-                        const newQuests = [...quests]; const day = newQuests[activeLevel].events; const idx = day.findIndex(e=>e.id===uploadingEventId); if(idx>-1){ day[idx].image=base64; setQuests(newQuests); }
+                        const newQuests = [...quests]; const day = newQuests[safeActiveLevel].events; const idx = day.findIndex(e=>e.id===uploadingEventId); if(idx>-1){ day[idx].image=base64; setQuests(newQuests); }
                     }; img.src = ev.target.result;
                 }; reader.readAsDataURL(file); e.target.value='';
             };
@@ -511,11 +579,11 @@
                 if (dragIndex === dropIndex) return;
 
                 const newQuests = [...quests];
-                const events = [...newQuests[activeLevel].events];
+                const events = [...newQuests[safeActiveLevel].events];
                 const [movedEvent] = events.splice(dragIndex, 1);
                 events.splice(dropIndex, 0, movedEvent);
                 
-                newQuests[activeLevel].events = events;
+                newQuests[safeActiveLevel].events = events;
                 setQuests(newQuests);
             };
 
@@ -526,7 +594,7 @@
                 try {
                     const canvas = await html2canvas(element, { backgroundColor: '#0f172a', scale: 2 });
                     const link = document.createElement('a');
-                    link.download = `Day${activeLevel}_Itinerary.png`;
+                    link.download = `Day${safeActiveLevel}_Itinerary.png`;
                     link.href = canvas.toDataURL('image/png');
                     link.click();
                 } catch (err) {
@@ -537,7 +605,7 @@
             
             // Route Map Link Generator
             const openRouteMap = () => {
-                const events = quests[activeLevel].events;
+                const events = currentQuest.events;
                 if (events.length < 2) return alert("行程過少，無法產生路線圖");
                 
                 // Limit to 10 waypoints (Google Maps limitation)
@@ -576,20 +644,20 @@
                 const newQuests = [...quests];
                 
                 if (isEditing && editingId) {
-                    const idx = newQuests[activeLevel].events.findIndex(e => e.id === editingId);
+                    const idx = newQuests[safeActiveLevel].events.findIndex(e => e.id === editingId);
                     if (idx > -1) {
                         eventPayload.id = editingId;
-                        eventPayload.image = newQuests[activeLevel].events[idx].image; 
-                        newQuests[activeLevel].events[idx] = eventPayload;
+                        eventPayload.image = newQuests[safeActiveLevel].events[idx].image; 
+                        newQuests[safeActiveLevel].events[idx] = eventPayload;
                     }
                 } else {
                     eventPayload.id = Date.now().toString();
-                    newQuests[activeLevel].events.push(eventPayload);
+                    newQuests[safeActiveLevel].events.push(eventPayload);
                 }
                 
                 // Only sort if not dragged (simple logic: sort on save if added new)
                 if (!isEditing) {
-                    newQuests[activeLevel].events.sort((a,b)=>a.time.localeCompare(b.time));
+                    newQuests[safeActiveLevel].events.sort((a,b)=>a.time.localeCompare(b.time));
                 }
                 
                 setQuests(newQuests); 
@@ -600,12 +668,12 @@
 
             const deleteEvent = (eventId) => {
                  if(!window.confirm("確定刪除？")) return;
-                 const newQuests = [...quests]; newQuests[activeLevel].events = newQuests[activeLevel].events.filter(e => e.id !== eventId); setQuests(newQuests);
+                 const newQuests = [...quests]; newQuests[safeActiveLevel].events = newQuests[safeActiveLevel].events.filter(e => e.id !== eventId); setQuests(newQuests);
             };
             
             const toggleComplete = (eventId) => {
                 const newQuests = [...quests];
-                const evt = newQuests[activeLevel].events.find(e => e.id === eventId);
+                const evt = newQuests[safeActiveLevel].events.find(e => e.id === eventId);
                 if(evt) {
                     evt.completed = !evt.completed;
                     if (evt.completed) {
@@ -629,7 +697,7 @@
                         type: ev.type === 'loot' ? 'loot' : 'travel',
                         method: 'cash',
                         payer: 'me',
-                        date: quests[activeLevel].date,
+                        date: currentQuest.date,
                         currency: 'JPY'
                     };
                     setExpenses([newExpense, ...expenses]);
@@ -637,12 +705,12 @@
                 }
             };
 
-            const updateNote = (text) => { const newQuests=[...quests]; newQuests[activeLevel].note = text; setQuests(newQuests); };
-            const weather = weatherForecast[activeLevel] || {};
+            const updateNote = (text) => { const newQuests=[...quests]; newQuests[safeActiveLevel].note = text; setQuests(newQuests); };
+            const weather = weatherForecast[safeActiveLevel] || {};
             const WeatherIcon = weather.code < 3 ? Sun : (weather.code < 60 ? CloudSun : CloudRain);
 
             return (
-                <div className="animate-enter w-full pb-20">
+                <div className="animate-enter w-full pb-32">
                     <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
                     
                     {/* Dynamic Stats Header */}
@@ -661,22 +729,22 @@
                         </div>
                     </div>
 
-                    <div className="flex w-full overflow-x-auto gap-2 mb-6 pb-2 no-scrollbar px-1">{quests.map((q, i) => (<button key={i} onClick={() => setActiveLevel(i)} className={`flex-shrink-0 px-4 py-2 border-2 text-xs font-bold whitespace-nowrap rounded-sm ${activeLevel === i ? "bg-blue-600 border-blue-400 text-white" : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)]"}`}>{i===0?"序章":i===4?"終章":`Day ${i}`}</button>))}</div>
+                    <div className="flex w-full overflow-x-auto gap-2 mb-6 pb-2 no-scrollbar px-1">{quests.map((q, i) => (<button key={i} onClick={() => setActiveLevel(i)} className={`flex-shrink-0 px-4 py-2 border-2 text-xs font-bold whitespace-nowrap rounded-sm ${safeActiveLevel === i ? "bg-blue-600 border-blue-400 text-white" : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)]"}`}>{i===0?"序章":i===4?"終章":`Day ${i}`}</button>))}</div>
                     
                     <div id="quest-container" className="relative">
                         <div className="w-full bg-[var(--bg-card)] border-2 border-[var(--border-color)] p-4 mb-6 rounded-sm relative overflow-hidden">
                             <div className="flex justify-between items-start">
-                                <h2 className="text-xl font-bold text-green-400 mb-1">{quests[activeLevel].title}</h2>
+                                <h2 className="text-xl font-bold text-green-400 mb-1">{currentQuest.title}</h2>
                                 <div className="flex gap-2">
                                     <button onClick={openRouteMap} className="text-xs text-blue-400 hover:text-white flex items-center gap-1"><Map size={14}/> 路線</button>
                                     <button onClick={exportItinerary} className="text-xs text-slate-400 hover:text-white flex items-center gap-1"><Camera size={14}/> 截圖</button>
                                 </div>
                             </div>
-                            <div className="text-sm text-[var(--text-muted)] mb-4 flex justify-between items-center"><span className="flex items-center gap-2"><Calendar size={12}/> {quests[activeLevel].date} {weather.max && <span className="flex items-center gap-1 text-yellow-500 ml-2"><WeatherIcon size={14}/> {weather.min}°-{weather.max}°</span>}</span><span className="text-blue-400 font-mono text-xs">T-{countdown}</span></div>
+                            <div className="text-sm text-[var(--text-muted)] mb-4 flex justify-between items-center"><span className="flex items-center gap-2"><Calendar size={12}/> {currentQuest.date} {weather.max && <span className="flex items-center gap-1 text-yellow-500 ml-2"><WeatherIcon size={14}/> {weather.min}°-{weather.max}°</span>}</span><span className="text-blue-400 font-mono text-xs">T-{countdown}</span></div>
                         </div>
                         <div className="w-full relative pl-4">
                             <div className="absolute left-[27px] top-4 bottom-4 w-1 bg-slate-700 z-0"></div>
-                            {quests[activeLevel].events.map((ev, idx) => {
+                            {currentQuest.events.map((ev, idx) => {
                                 const IconC = ICON_MAP[ev.icon] || MapPin; const ModeIcon = ICON_MAP[ev.transportMode] || Footprints;
                                 return (
                                     <div 
@@ -734,7 +802,7 @@
                                 )
                             })}
                             <div className="relative z-10 mt-4 mb-10 pl-16"><button onClick={() => { setIsEditing(false); setIsAddingEvent(true); setNewEventData({ time: "10:00", title: "", desc: "", type: "action", locationQuery: "", transportTime: "", transportCost: "", transportMode: "Footprints", tags: "", completed: false }); }} className="w-full border-2 border-dashed border-[var(--border-color)] text-[var(--text-muted)] rounded-lg p-3 hover:text-[var(--text-main)]"><PlusCircle className="inline mr-2"/>新增行程</button></div>
-                            <div className="ml-4 mt-8 bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded"><h4 className="text-xs text-blue-400 mb-2 font-bold flex items-center gap-2"><FileText size={12}/> 冒險日記 (Journal)</h4><textarea className="w-full bg-transparent text-sm text-[var(--text-main)] outline-none resize-none h-24" placeholder="今天發生了什麼趣事..." value={quests[activeLevel].note||""} onChange={(e)=>updateNote(e.target.value)}></textarea></div>
+                            <div className="ml-4 mt-8 bg-[var(--bg-card)] border border-[var(--border-color)] p-3 rounded"><h4 className="text-xs text-blue-400 mb-2 font-bold flex items-center gap-2"><FileText size={12}/> 冒險日記 (Journal)</h4><textarea className="w-full bg-transparent text-sm text-[var(--text-main)] outline-none resize-none h-24" placeholder="今天發生了什麼趣事..." value={currentQuest.note||""} onChange={(e)=>updateNote(e.target.value)}></textarea></div>
                         </div>
                     </div>
                     {isAddingEvent && (
@@ -896,14 +964,21 @@
             const deleteShopItem = (id) => { if(confirm("刪除?")) setShoppingList(shoppingList.filter(i=>i.id!==id)); };
             const toggleShop = (id) => setShoppingList(shoppingList.map(i=>i.id===id?{...i,checked:!i.checked}:i));
             
-            const handleOCR = async (e) => {
+          const handleOCR = async (e) => {
                 const file = e.target.files[0]; if(!file) return; setIsScanning(true);
                 const reader = new FileReader(); reader.onload = async (ev) => {
                     try {
                         const result = await callGeminiAPI("Analyze this receipt. Return ONLY JSON: {item: string, cost: number, currency: 'JPY'|'TWD', date: 'YYYY-MM-DD'}", ev.target.result);
-                        const parsed = JSON.parse(result.replace(/```json|```/g, '').trim());
+                        // 優化：使用 Regex 抓取第一個 { 到最後一個 } 之間的內容，過濾掉 AI 的廢話
+                        const jsonMatch = result.match(/\{[\s\S]*\}/);
+                        if (!jsonMatch) throw new Error("無法解析回應資料");
+                        
+                        const parsed = JSON.parse(jsonMatch[0]);
                         setNewExp({ ...newExp, item: parsed.item||"掃描項目", cost: parsed.cost||0, currency: parsed.currency||'JPY', date: parsed.date||newExp.date });
-                    } catch (err) { alert("辨識失敗"); } finally { setIsScanning(false); }
+                    } catch (err) { 
+                        console.error(err); 
+                        alert("辨識失敗，請重試 (可能是圖片不清晰)"); 
+                    } finally { setIsScanning(false); }
                 }; reader.readAsDataURL(file);
             };
 
@@ -1016,7 +1091,7 @@
         const GuideView = () => {
             const [expandedGuideId, setExpandedGuideId] = useState(null);
             return (
-                <div className="w-full animate-enter pb-20"><div className="space-y-4">{GUIDE_DETAILS.map((place) => (<div key={place.id} className="bg-[var(--bg-card)] border-2 border-[var(--border-color)] rounded-lg overflow-hidden transition-all duration-300"><div className="p-4 cursor-pointer hover:bg-slate-700/50 flex items-center gap-4" onClick={() => setExpandedGuideId(expandedGuideId === place.id ? null : place.id)}><div className="text-4xl">{place.image}</div><div className="flex-1"><h3 className="font-bold text-lg text-yellow-400">{place.title}</h3><p className="text-xs text-[var(--text-muted)] mb-1">{place.subtitle}</p><div className="flex gap-1 flex-wrap">{place.tags.map(tag => (<span key={tag} className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-blue-300 border border-slate-600">#{tag}</span>))}</div></div><div className={`transition-transform duration-300 ${expandedGuideId === place.id ? 'rotate-180' : ''}`}><ArrowDown size={16} className="text-slate-500" /></div></div>{expandedGuideId === place.id && (<div className="p-4 pt-0 border-t border-[var(--border-color)] bg-[var(--bg-input)] animate-in slide-in-from-top-2"><div className="text-sm text-[var(--text-main)] mb-4 leading-relaxed mt-4">{place.desc}</div><div className="space-y-3 text-xs"><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-blue-400 mb-1 flex items-center gap-2"><Clock size={12}/> 歷史小知識</h4><p className="text-[var(--text-muted)]">{place.content.history}</p></div><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-yellow-400 mb-1 flex items-center gap-2"><Star size={12} /> 特色與必看</h4><p className="text-[var(--text-muted)]">{place.content.features}</p></div><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-green-400 mb-1 flex items-center gap-2"><MapPin size={12}/> 攻略 Tips</h4><p className="text-[var(--text-muted)]">{place.content.tips}</p></div><div className="bg-red-900/20 p-3 rounded border border-red-900/50"><h4 className="font-bold text-red-400 mb-1 flex items-center gap-2"><AlertTriangle size={12}/> 注意事項</h4><p className="text-red-200/80">{place.content.warning}</p></div></div></div>)}</div>))}</div></div>
+                <div className="w-full animate-enter pb-32"><div className="space-y-4">{GUIDE_DETAILS.map((place) => (<div key={place.id} className="bg-[var(--bg-card)] border-2 border-[var(--border-color)] rounded-lg overflow-hidden transition-all duration-300"><div className="p-4 cursor-pointer hover:bg-slate-700/50 flex items-center gap-4" onClick={() => setExpandedGuideId(expandedGuideId === place.id ? null : place.id)}><div className="text-4xl">{place.image}</div><div className="flex-1"><h3 className="font-bold text-lg text-yellow-400">{place.title}</h3><p className="text-xs text-[var(--text-muted)] mb-1">{place.subtitle}</p><div className="flex gap-1 flex-wrap">{place.tags.map(tag => (<span key={tag} className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-blue-300 border border-slate-600">#{tag}</span>))}</div></div><div className={`transition-transform duration-300 ${expandedGuideId === place.id ? 'rotate-180' : ''}`}><ArrowDown size={16} className="text-slate-500" /></div></div>{expandedGuideId === place.id && (<div className="p-4 pt-0 border-t border-[var(--border-color)] bg-[var(--bg-input)] animate-in slide-in-from-top-2"><div className="text-sm text-[var(--text-main)] mb-4 leading-relaxed mt-4">{place.desc}</div><div className="space-y-3 text-xs"><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-blue-400 mb-1 flex items-center gap-2"><Clock size={12}/> 歷史小知識</h4><p className="text-[var(--text-muted)]">{place.content.history}</p></div><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-yellow-400 mb-1 flex items-center gap-2"><Star size={12} /> 特色與必看</h4><p className="text-[var(--text-muted)]">{place.content.features}</p></div><div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border-color)]"><h4 className="font-bold text-green-400 mb-1 flex items-center gap-2"><MapPin size={12}/> 攻略 Tips</h4><p className="text-[var(--text-muted)]">{place.content.tips}</p></div><div className="bg-red-900/20 p-3 rounded border border-red-900/50"><h4 className="font-bold text-red-400 mb-1 flex items-center gap-2"><AlertTriangle size={12}/> 注意事項</h4><p className="text-red-200/80">{place.content.warning}</p></div></div></div>)}</div>))}</div></div>
             );
         };
 
@@ -1039,7 +1114,7 @@
             const [history, setHistory] = useFirestoreData(user, tripId, 'trans_history', []);
 
             // Combine built-in and custom spells
-            const allSpells = [...SPELL_DATA, ...customSpells];
+            const allSpells = [...SPELL_DATA, ...(customSpells||[])]; // Safety check
             const filteredSpells = filterType === 'all' ? allSpells : allSpells.filter(s => s.type === filterType);
 
             const handleTranslate = async () => {
@@ -1075,7 +1150,7 @@
             };
 
             return (
-                <div className="w-full animate-enter pb-20">
+                <div className="w-full animate-enter pb-32">
                      {/* Translation Tool */}
                      <div className="bg-[var(--bg-card)] border-2 border-blue-500 p-4 rounded-sm mb-6 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.2)]">
                         <div className="absolute top-0 right-0 bg-blue-600 text-[10px] px-2 py-0.5 text-white font-bold font-mono">LIVE TRANSLATE</div>
@@ -1506,8 +1581,7 @@
             const [weatherForecast, setWeatherForecast] = useState({});
             const [weatherTemp, setWeatherTemp] = useState(15); 
             const [isLightMode, setIsLightMode] = useState(false); 
-
-            useEffect(() => {
+useEffect(() => {
                 const initAuth = async () => { 
                     const urlParams = new URLSearchParams(window.location.search);
                     const sharedTripId = urlParams.get('tripId');
@@ -1518,7 +1592,9 @@
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         try { await signInWithCustomToken(auth, __initial_auth_token); } 
                         catch (e) { console.error("Auth Err", e); if (USE_REAL_GOOGLE_AUTH) await signInWithPopup(getAuth(app), new GoogleAuthProvider()).catch(console.error); else await signInAnonymously(getAuth(app)); }
-                    } else if (USE_REAL_GOOGLE_AUTH) { await signInAnonymously(getAuth(app)); }
+                    } 
+                    // 優化：只有在「不使用」Google 真實登入時，才自動執行匿名登入，否則等待使用者點擊登入按鈕
+                    else if (!USE_REAL_GOOGLE_AUTH) { await signInAnonymously(getAuth(app)); }
                 };
                 initAuth();
                 onAuthStateChanged(getAuth(app), u => { 
@@ -1559,6 +1635,9 @@
             const setBudget = (val) => updateSettings({ ...settingsData, budget: val });
             
             const stats = useMemo(() => {
+                // Safety check for empty quests
+                if (!quests || !expenses) return { xp: 0, goldRemaining: 0, fatigue: 0 };
+                
                 let completedCount = 0; let dayEvents = 0; let dayCompleted = 0;
                 quests.forEach((q, i) => { q.events.forEach(e => { if(e.completed) completedCount++; if(i === activeLevel) { dayEvents++; if(e.completed) dayCompleted++; } }); });
                 const totalSpent = expenses.reduce((a,c)=>a+c.cost,0);
@@ -1593,14 +1672,15 @@
         const MainLayout = () => {
             const { activeTab, setActiveTab, isLightMode, setIsLightMode } = useContext(AppContext);
             return (
-                <div className="min-h-screen pb-20 max-w-md mx-auto shadow-2xl border-x border-slate-800 relative bg-[var(--bg-main)] transition-colors duration-300">
-                    <div className="w-full mb-6 border-b border-[var(--border-color)] pb-4 text-center sticky top-0 bg-[var(--bg-main)]/95 backdrop-blur z-20 pt-4 px-4 shadow-lg flex items-center justify-between">
+                <div className="min-h-screen pb-safe max-w-md mx-auto shadow-2xl border-x border-slate-800 relative bg-[var(--bg-main)] transition-colors duration-300">
+                    <div className="w-full mb-6 border-b border-[var(--border-color)] pb-4 text-center sticky top-0 bg-[var(--bg-main)]/95 backdrop-blur z-30 pt-4 px-4 shadow-lg flex items-center justify-between">
                         <div className="w-8"></div> {/* Spacer */}
                         <h1 className="text-xl font-bold tracking-widest text-yellow-400 mb-2 flex justify-center gap-2"><MapPin/> 名古屋冒險日誌</h1>
                         <button onClick={() => setIsLightMode(!isLightMode)} className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--bg-input)] text-[var(--text-main)] hover:text-yellow-400 transition">
                             {isLightMode ? <SunMoon size={16}/> : <Sun size={16}/>}
                         </button>
                     </div>
+                    
                     <div className="px-4">
                         {activeTab === 'quest' && <QuestView />}
                         {activeTab === 'inventory' && <InventoryView />}
@@ -1608,7 +1688,11 @@
                         {activeTab === 'guide' && <GuideView />}
                         {activeTab === 'info' && <InfoView />}
                     </div>
-                    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-main)] border-t border-[var(--border-color)] p-2 z-30 pb-safe grid grid-cols-5 gap-1">
+                    
+                    {/* Floating Scroll To Top Button */}
+                    <ScrollToTop />
+                    
+                    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-main)] border-t border-[var(--border-color)] p-2 z-50 pb-safe grid grid-cols-5 gap-1">
                         <button onClick={()=>setActiveTab('quest')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='quest'?'text-yellow-400':'text-[var(--text-muted)]'}`}><Scroll size={20}/><span className="text-[10px]">任務</span></button>
                         <button onClick={()=>setActiveTab('inventory')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='inventory'?'text-yellow-400':'text-[var(--text-muted)]'}`}><Coins size={20}/><span className="text-[10px]">行囊</span></button>
                         <button onClick={()=>setActiveTab('grimoire')} className={`flex flex-col items-center justify-center p-2 rounded ${activeTab==='grimoire'?'text-yellow-400':'text-[var(--text-muted)]'}`}><BookOpen size={20}/><span className="text-[10px]">魔導書</span></button>
