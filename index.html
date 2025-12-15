@@ -5,18 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>名古屋冒險日誌 | Nagoya Adventure Log</title>
     
-    <!-- PWA Manifest -->
     <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoi5ZCN5Y+qk9aF6ZqquZzmXlSIsInNob3J0X25hbWUiOiLlgpLpmprljp8iLCJzdGFydF91cmwiOiIuLyIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwZjE3MmEiLCJ0aGVtZV9jb2xvciI6IiMwZjE3MmEiLCJpY29ucyI6W3sic3JjIjoiaHR0cHM6Ly9jZG4tanRpZmYtY29tLnRpbnlwaXguY29tL3VwbG9hZHMvMjAyMy0xMS0wNy9jbHVlc19tYXBfMTI4eDEyOC5wbmciLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ==">
     <meta name="theme-color" content="#0f172a">
     
-    <!-- 1. Performance Optimization -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://esm.sh">
     <link rel="preconnect" href="https://www.gstatic.com">
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     
-    <!-- 2. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -31,10 +28,8 @@
         }
     </script>
     
-    <!-- 3. Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
 
-    <!-- 4. Import Map -->
     <script type="importmap">
     {
         "imports": {
@@ -50,7 +45,6 @@
     }
     </script>
 
-    <!-- 5. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -335,19 +329,15 @@
              }
         };
 
-        // --- Hook with Offline Support & LocalStorage Backup ---
-        // OPTIMIZED: Lazy init to prevent data reset on refresh
+        // --- Hook with Offline Support & LocalStorage Backup (ENHANCED) ---
         function useFirestoreData(user, tripId, collectionName, initialData, isObject = false) {
+            // 1. Init state: Try to load from localStorage immediately to prevent flash of empty data
             const [data, setData] = useState(() => {
                 if (tripId) {
                     const localKey = `${tripId}_${collectionName}`;
                     const cached = localStorage.getItem(localKey);
-                    if (cached) {
-                        try {
-                            return JSON.parse(cached);
-                        } catch (e) {
-                            console.error("Local load parse error", e);
-                        }
+                    if (cached && cached !== "undefined" && cached !== "null") {
+                        try { return JSON.parse(cached); } catch (e) { console.error("Local load parse error", e); }
                     }
                 }
                 return initialData;
@@ -355,23 +345,22 @@
             
             const [isOffline, setIsOffline] = useState(false);
 
-            // 1. Force load from localStorage whenever key changes (Fix for persistence issue)
+            // 2. Firestore Sync & Persistence Logic
             useEffect(() => {
                 if (!tripId) return;
                 const localKey = `${tripId}_${collectionName}`;
-                const cached = localStorage.getItem(localKey);
-                if (cached) {
-                    try {
-                        setData(JSON.parse(cached));
-                    } catch (e) {
-                        console.error("Local load error", e);
-                    }
-                }
-            }, [tripId, collectionName]);
 
-            // 2. Firestore Sync
-            useEffect(() => {
-                if (!user || !tripId) return;
+                // Force load local storage again when tripId settles (fixes refresh bug)
+                const cached = localStorage.getItem(localKey);
+                if (cached && cached !== "undefined") {
+                    try { 
+                        const parsed = JSON.parse(cached);
+                        // Only set if we have data, otherwise keep initial/current
+                        if(parsed) setData(parsed);
+                    } catch (e) { console.error("Re-sync load error", e); }
+                }
+
+                if (!user) { setIsOffline(true); return; }
 
                 let docRef;
                 if (typeof __app_id !== 'undefined') {
@@ -384,45 +373,33 @@
                     setIsOffline(docSnap.metadata.fromCache);
                     if (docSnap.exists()) {
                         const cloudData = isObject ? docSnap.data() : docSnap.data().items;
-                        // Keep cloud and local in sync
-                        setData(cloudData);
-                        localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(cloudData)); 
+                        if(JSON.stringify(cloudData) !== JSON.stringify(data)) {
+                            setData(cloudData);
+                            localStorage.setItem(localKey, JSON.stringify(cloudData));
+                        }
                     } else {
-                        // CRITICAL FIX: If doc doesn't exist, check local storage first before using initialData
-                        // This prevents wiping data if connection glitches or first sync fails
-                        const localKey = `${tripId}_${collectionName}`;
-                        const cached = localStorage.getItem(localKey);
+                        // If cloud is empty but we have local data, SAVE local to cloud (Sync Up)
+                        const currentLocal = localStorage.getItem(localKey);
                         let dataToSave = initialData;
                         
-                        if (cached) {
-                            try {
-                                const parsed = JSON.parse(cached);
-                                if (parsed) {
-                                    console.log(`Restoring ${collectionName} from local storage to cloud`);
-                                    dataToSave = parsed;
-                                    // Update state immediately to reflect local data while saving
-                                    setData(dataToSave); 
-                                }
-                            } catch (e) {
-                                console.error("Local load error during init", e);
-                            }
+                        if (currentLocal) {
+                            try { dataToSave = JSON.parse(currentLocal); } catch(e){}
                         }
-
-                        // Save to Cloud (either recovered local data or initial data)
-                        setDoc(docRef, isObject ? dataToSave : { items: dataToSave }).catch(e => console.error("Init data failed", e));
+                        
+                        // Prevent overwriting with empty initial data if we think we should have data
+                        setDoc(docRef, isObject ? dataToSave : { items: dataToSave }).catch(e => console.error("Init save failed", e));
                     }
                 }, (error) => {
                     console.error(`Offline or Error fetching ${collectionName}:`, error);
                     setIsOffline(true);
-                    // On error, we rely on the data already loaded from localStorage in useEffect #1
                 });
                 return () => unsubscribe();
             }, [user, tripId, collectionName]);
 
             const updateData = (newData) => {
                 setData(newData);
-                // Save to local immediately
-                localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(newData)); 
+                // Save to local immediately (Critical for persistence)
+                if(tripId) localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(newData));
                 
                 if (!user || !tripId) return;
                 let docRef;
@@ -433,11 +410,7 @@
                 }
                 
                 setDoc(docRef, isObject ? newData : { items: newData }).catch(e => {
-                    if (e.code === 'resource-exhausted' || e.message.includes('exceeds the maximum')) {
-                        alert("⚠️ 雲端空間不足 (圖片可能過大)。資料已保存於本地，但無法同步給他人。");
-                    } else {
-                        console.error("Cloud save failed, using local", e);
-                    }
+                    console.warn("Cloud save failed, data saved locally:", e);
                 });
             };
             return [data, updateData, isOffline];
@@ -797,7 +770,7 @@
         };
 
         const InventoryView = () => {
-            const { expenses, setExpenses, budget, setBudget, exchangeRate, shoppingList, setShoppingList, quests, activeLevel, settingsData, updateSettings } = useContext(AppContext);
+            const { expenses, setExpenses, budget, setBudget, exchangeRate, shoppingList, setShoppingList, quests, activeLevel, settingsData, updateSettings, fundHistory, setFundHistory } = useContext(AppContext);
             const [newExp, setNewExp] = useState({ item: "", cost: "", type: "loot", method: "cash", payer: "me", date: new Date().toISOString().split('T')[0], currency: "JPY" });
             const [newShopItem, setNewShopItem] = useState("");
             const [isEditingBudget, setIsEditingBudget] = useState(false); 
@@ -810,12 +783,11 @@
             
             // Fund Management State
             const [isManagingFunds, setIsManagingFunds] = useState(false);
-            const [fundType, setFundType] = useState('charge'); // charge (cash->ic), withdraw (atm->cash), cc_charge (cc->ic)
+            const [fundType, setFundType] = useState('charge'); 
             const [fundAmount, setFundAmount] = useState("");
             
             const ocrInputRef = useRef(null);
 
-            // Expense Category Configuration & Colors
             const EXPENSE_CATS = [
                 { id: 'loot', label: '美食', icon: Utensils, activeClass: 'bg-yellow-600 border-yellow-500 text-white ring-2 ring-yellow-500/20', color: '#ca8a04' },
                 { id: 'travel', label: '交通', icon: Train, activeClass: 'bg-blue-600 border-blue-500 text-white ring-2 ring-blue-500/20', color: '#2563eb' },
@@ -824,25 +796,13 @@
                 { id: 'other', label: '其他', icon: HelpCircle, activeClass: 'bg-slate-600 border-slate-500 text-white ring-2 ring-slate-500/20', color: '#475569' }
             ];
 
-            // Prepare Data for Pie Chart
             const pieData = useMemo(() => {
-                const grouped = EXPENSE_CATS.map(cat => ({
-                    name: cat.label,
-                    value: 0,
-                    color: cat.color
-                }));
-                
+                const grouped = EXPENSE_CATS.map(cat => ({ name: cat.label, value: 0, color: cat.color }));
                 expenses.forEach(e => {
                     const catIndex = EXPENSE_CATS.findIndex(c => c.id === e.type);
-                    if (catIndex > -1) {
-                        grouped[catIndex].value += e.cost;
-                    } else {
-                        // fallback to other if type not found
-                        const otherIndex = EXPENSE_CATS.findIndex(c => c.id === 'other');
-                        if(otherIndex > -1) grouped[otherIndex].value += e.cost;
-                    }
+                    if (catIndex > -1) grouped[catIndex].value += e.cost;
+                    else grouped[4].value += e.cost; // other
                 });
-                
                 return grouped.filter(g => g.value > 0);
             }, [expenses]);
 
@@ -850,121 +810,113 @@
             const icBudget = settingsData?.icBudget || 3000; 
             
             const handleSaveBudget = () => {
-                const newTotal = parseInt(tempBudget) || 0;
-                const newCash = parseInt(tempCashBudget) || 0;
-                const newIc = parseInt(tempIcBudget) || 0;
-                
                 updateSettings({
                     ...settingsData,
-                    budget: newTotal,
-                    cashBudget: newCash,
-                    icBudget: newIc
+                    budget: parseInt(tempBudget) || 0,
+                    cashBudget: parseInt(tempCashBudget) || 0,
+                    icBudget: parseInt(tempIcBudget) || 0
                 });
                 setIsEditingBudget(false);
             };
 
-            // Handle Fund Updates
+            // Enhanced Fund Update with History
             const handleFundUpdate = () => {
                 const val = parseInt(fundAmount);
                 if (!val || val <= 0) return alert("請輸入有效金額");
 
                 const newSettings = { ...settingsData, cashBudget, icBudget };
+                let historyTitle = "";
 
                 if (fundType === 'withdraw') {
-                    // ATM Withdraw: Add to Cash
                     newSettings.cashBudget += val;
-                    alert(`已記錄提款: ¥${val}`);
+                    historyTitle = "ATM 提款";
                 } else if (fundType === 'charge') {
-                    // Cash Charge IC: Cash decreases, IC increases
-                    const cashSpentReal = expenses.filter(e => e.method === 'cash').reduce((a,c) => a + c.cost, 0);
-                    const currentCash = cashBudget - cashSpentReal;
-                    
-                    if (currentCash < val) return alert("錢包現金不足，無法儲值！");
-                    
+                    if ((cashBudget - (expenses.filter(e => e.method === 'cash').reduce((a,c) => a + c.cost, 0))) < val) return alert("錢包現金不足，無法儲值！");
                     newSettings.cashBudget -= val;
                     newSettings.icBudget += val;
-                    alert(`已使用現金儲值 IC 卡: ¥${val}`);
+                    historyTitle = "現金儲值 IC";
                 } else if (fundType === 'cc_charge') {
-                    // CC Charge IC: IC increases only
                     newSettings.icBudget += val;
-                    alert(`已刷卡儲值 IC 卡: ¥${val}`);
+                    historyTitle = "信用卡儲值 IC";
+                }
+
+                // Add to History
+                const newRecord = {
+                    id: Date.now(),
+                    type: fundType,
+                    amount: val,
+                    title: historyTitle,
+                    date: new Date().toLocaleString('zh-TW', { hour12: false })
+                };
+
+                setFundHistory([newRecord, ...fundHistory]);
+                updateSettings(newSettings);
+                setFundAmount("");
+                alert(`交易成功：${historyTitle} ¥${val}`);
+            };
+
+            // Delete History Record (Reverse Logic)
+            const deleteFundRecord = (record) => {
+                if(!confirm(`確定刪除這筆「${record.title}」紀錄嗎？\n金額 ¥${record.amount} 將會回滾。`)) return;
+
+                const newSettings = { ...settingsData, cashBudget, icBudget };
+                const val = record.amount;
+
+                // Reverse the operation
+                if (record.type === 'withdraw') {
+                    newSettings.cashBudget -= val; // Reverse ATM withdraw
+                } else if (record.type === 'charge') {
+                    newSettings.cashBudget += val; // Give back cash
+                    newSettings.icBudget -= val;   // Take back IC
+                } else if (record.type === 'cc_charge') {
+                    newSettings.icBudget -= val;   // Take back IC
                 }
 
                 updateSettings(newSettings);
-                setIsManagingFunds(false);
-                setFundAmount("");
+                setFundHistory(fundHistory.filter(r => r.id !== record.id));
             };
 
             const addOrUpdateExpense = () => {
                 if(!newExp.item || !newExp.cost) return;
                 const finalCost = newExp.currency === 'TWD' ? Math.round(parseInt(newExp.cost)/exchangeRate) : parseInt(newExp.cost);
                 const payload = { ...newExp, cost: finalCost };
-                
                 if (isEditingExpense && editingExpId) {
                     setExpenses(expenses.map(e => e.id === editingExpId ? { ...payload, id: editingExpId } : e));
-                    setIsEditingExpense(false);
-                    setEditingExpId(null);
+                    setIsEditingExpense(false); setEditingExpId(null);
                 } else {
                     setExpenses([{ id: Date.now(), ...payload }, ...expenses]);
-                    if (newExp.type === 'trade' || newExp.type === 'loot') {
-                        confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 }, colors: ['#FFD700', '#FFA500'] });
-                    }
+                    if (newExp.type === 'trade' || newExp.type === 'loot') confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 }, colors: ['#FFD700', '#FFA500'] });
                 }
                 setNewExp({ item: "", cost: "", type: "loot", method: "cash", payer: "me", date: new Date().toISOString().split('T')[0], currency: "JPY" });
             };
 
-            const editExpense = (exp) => {
-                setNewExp({ ...exp, cost: exp.cost, currency: 'JPY' });
-                setEditingExpId(exp.id);
-                setIsEditingExpense(true);
-            };
-
+            const editExpense = (exp) => { setNewExp({ ...exp, cost: exp.cost, currency: 'JPY' }); setEditingExpId(exp.id); setIsEditingExpense(true); };
             const deleteExpense = (id) => { if(confirm("刪除?")) setExpenses(expenses.filter(e=>e.id!==id)); };
             const addShopItem = () => { if(newShopItem){ setShoppingList([...shoppingList, {id: Date.now(), text: newShopItem, checked: false}]); setNewShopItem(""); }};
             const deleteShopItem = (id) => { if(confirm("刪除?")) setShoppingList(shoppingList.filter(i=>i.id!==id)); };
             const toggleShop = (id) => setShoppingList(shoppingList.map(i=>i.id===id?{...i,checked:!i.checked}:i));
             
+            const handleOCR = async (e) => {
+                const file = e.target.files[0]; if(!file) return; setIsScanning(true);
+                const reader = new FileReader(); reader.onload = async (ev) => {
+                    try {
+                        const result = await callGeminiAPI("Analyze this receipt. Return ONLY JSON: {item: string, cost: number, currency: 'JPY'|'TWD', date: 'YYYY-MM-DD'}", ev.target.result);
+                        const parsed = JSON.parse(result.replace(/```json|```/g, '').trim());
+                        setNewExp({ ...newExp, item: parsed.item||"掃描項目", cost: parsed.cost||0, currency: parsed.currency||'JPY', date: parsed.date||newExp.date });
+                    } catch (err) { alert("辨識失敗"); } finally { setIsScanning(false); }
+                }; reader.readAsDataURL(file);
+            };
+
             const totalSpent = expenses.reduce((a,c)=>a+c.cost,0);
             const remainingBudget = budget - totalSpent;
             const budgetPercent = Math.max(0, (remainingBudget / budget) * 100);
-            
-            // Cash Tracker Logic
             const cashSpent = expenses.filter(e => e.method === 'cash').reduce((a,c) => a + c.cost, 0);
             const cashRemaining = cashBudget - cashSpent;
-
-            // IC Card Tracker Logic
             const icSpent = expenses.filter(e => e.method === 'ic').reduce((a,c) => a + c.cost, 0);
             const icRemaining = icBudget - icSpent;
-
-            // Daily Cap Logic
-            const remainingDays = Math.max(1, quests.length - activeLevel);
-            const dailyCap = Math.floor(remainingBudget / remainingDays);
-
-            // Splitwise Logic
-            const myCredits = expenses.filter(e => e.payer === 'partner').reduce((acc, curr) => acc + curr.cost, 0); 
-            
-            // OCR Logic
-            const handleOCR = async (e) => {
-                const file = e.target.files[0]; if(!file) return;
-                setIsScanning(true);
-                const reader = new FileReader();
-                reader.onload = async (ev) => {
-                    try {
-                        const base64 = ev.target.result;
-                        const result = await callGeminiAPI("Analyze this receipt. Return ONLY a JSON object with {item: string (summary), cost: number (integer), currency: 'JPY' or 'TWD', date: 'YYYY-MM-DD'}. No markdown.", base64);
-                        const cleanResult = result.replace(/```json|```/g, '').trim();
-                        const parsed = JSON.parse(cleanResult);
-                        setNewExp({ ...newExp, item: parsed.item || "掃描項目", cost: parsed.cost || 0, currency: parsed.currency || 'JPY', date: parsed.date || newExp.date });
-                    } catch (err) {
-                        alert("辨識失敗，請重試");
-                        console.error(err);
-                    } finally { setIsScanning(false); }
-                };
-                reader.readAsDataURL(file);
-            };
-
-            // Calculate TWD equivalent
+            const dailyCap = Math.floor(remainingBudget / Math.max(1, quests.length - activeLevel));
             const totalSpentTWD = Math.round(totalSpent * exchangeRate);
+            const myCredits = expenses.filter(e => e.payer === 'partner').reduce((acc, curr) => acc + curr.cost, 0); 
 
             return (
                 <div className="w-full animate-enter pb-32">
@@ -972,201 +924,90 @@
                     <div className="bg-[var(--bg-card)] border-2 border-yellow-600 p-4 mb-4 rounded relative overflow-hidden">
                         <div className="flex justify-between items-end mb-2 relative z-10">
                             <div>
-                                <div className="text-xs text-yellow-600 font-bold mb-1 flex gap-2 items-center">
-                                    總額度 (TOTAL BUDGET) 
-                                    {!isEditingBudget && <button onClick={()=>{setIsEditingBudget(true);setTempBudget(budget);setTempCashBudget(cashBudget);setTempIcBudget(icBudget)}}><Edit size={12}/></button>}
-                                </div>
+                                <div className="text-xs text-yellow-600 font-bold mb-1 flex gap-2 items-center">總額度 (TOTAL) {!isEditingBudget && <button onClick={()=>{setIsEditingBudget(true);setTempBudget(budget);setTempCashBudget(cashBudget);setTempIcBudget(icBudget)}}><Edit size={12}/></button>}</div>
                                 {isEditingBudget ? (
                                     <div className="flex flex-col gap-2 bg-slate-900 p-2 rounded border border-slate-600">
-                                            <div className="flex gap-2 items-center justify-between">
-                                                <span className="text-[10px] w-8">總額:</span>
-                                                <input type="number" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/>
-                                            </div>
-                                            <div className="flex gap-2 items-center justify-between">
-                                                <span className="text-[10px] w-8 text-green-300">現金:</span>
-                                                <input type="number" value={tempCashBudget} onChange={e=>setTempCashBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/>
-                                            </div>
-                                            <div className="flex gap-2 items-center justify-between">
-                                                <span className="text-[10px] w-8 text-blue-300">IC卡:</span>
-                                                <input type="number" value={tempIcBudget} onChange={e=>setTempIcBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/>
-                                            </div>
+                                            <div className="flex gap-2 items-center justify-between"><span className="text-[10px] w-8">總額:</span><input type="number" value={tempBudget} onChange={e=>setTempBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/></div>
+                                            <div className="flex gap-2 items-center justify-between"><span className="text-[10px] w-8 text-green-300">現金:</span><input type="number" value={tempCashBudget} onChange={e=>setTempCashBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/></div>
+                                            <div className="flex gap-2 items-center justify-between"><span className="text-[10px] w-8 text-blue-300">IC卡:</span><input type="number" value={tempIcBudget} onChange={e=>setTempIcBudget(e.target.value)} className="bg-slate-800 w-24 px-1 text-white border border-slate-600 text-right"/></div>
                                             <button onClick={handleSaveBudget} className="text-xs bg-green-600 text-white py-1 rounded w-full mt-1">確認儲存</button>
                                     </div>
                                 ) : (
-                                    <div className="flex gap-4">
-                                        <div>
-                                            <div className="text-3xl text-yellow-400 font-bold tracking-tighter">¥{remainingBudget.toLocaleString()}</div>
-                                            <div className="text-[9px] text-[var(--text-muted)]">剩餘總額</div>
-                                        </div>
-                                    </div>
+                                    <div className="flex gap-4"><div><div className="text-3xl text-yellow-400 font-bold tracking-tighter">¥{remainingBudget.toLocaleString()}</div><div className="text-[9px] text-[var(--text-muted)]">剩餘總額</div></div></div>
                                 )}
                             </div>
-                            <div className="text-right">
-                                <div className="text-[10px] text-[var(--text-muted)]">今日建議上限</div>
-                                <div className="text-sm font-bold text-blue-300">¥{dailyCap.toLocaleString()}</div>
-                            </div>
+                            <div className="text-right"><div className="text-[10px] text-[var(--text-muted)]">今日建議上限</div><div className="text-sm font-bold text-blue-300">¥{dailyCap.toLocaleString()}</div></div>
                         </div>
-                        {/* HP Bar */}
-                        <div className="hp-bar-container w-full relative">
-                            <div className={`hp-bar-fill ${budgetPercent > 50 ? 'bg-green-500' : budgetPercent > 20 ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'}`} style={{width: `${budgetPercent}%`}}></div>
-                        </div>
-                        <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1">
-                            <span className="flex items-center gap-1">
-                                已支出: ¥{totalSpent.toLocaleString()} 
-                                <span className="text-[9px] opacity-70">≈ NT${totalSpentTWD.toLocaleString()}</span>
-                            </span>
-                            <span>{Math.round(budgetPercent)}%</span>
-                        </div>
+                        <div className="hp-bar-container w-full relative"><div className={`hp-bar-fill ${budgetPercent > 50 ? 'bg-green-500' : budgetPercent > 20 ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'}`} style={{width: `${budgetPercent}%`}}></div></div>
+                        <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1"><span className="flex items-center gap-1">已支出: ¥{totalSpent.toLocaleString()} <span className="text-[9px] opacity-70">≈ NT${totalSpentTWD.toLocaleString()}</span></span><span>{Math.round(budgetPercent)}%</span></div>
                     </div>
                     
                     {/* Cash & IC & Fund Management */}
                     <div className="grid grid-cols-2 gap-3 mb-4">
                         <div className={`bg-[var(--bg-card)] border p-3 rounded relative flex flex-col justify-between ${cashRemaining < 10000 ? 'border-red-500/50' : 'border-[var(--border-color)]'}`}>
-                            <div>
-                                <div className="flex items-center gap-2 text-[var(--text-muted)] mb-1"><Banknote size={14}/> <span className="text-xs font-bold">錢包現金</span></div>
-                                <div className={`text-lg font-bold font-mono ${cashRemaining < 3000 ? 'text-red-500' : cashRemaining < 10000 ? 'text-yellow-500' : 'text-[var(--text-main)]'}`}>¥{cashRemaining.toLocaleString()}</div>
-                            </div>
+                            <div><div className="flex items-center gap-2 text-[var(--text-muted)] mb-1"><Banknote size={14}/> <span className="text-xs font-bold">錢包現金</span></div><div className={`text-lg font-bold font-mono ${cashRemaining < 3000 ? 'text-red-500' : cashRemaining < 10000 ? 'text-yellow-500' : 'text-[var(--text-main)]'}`}>¥{cashRemaining.toLocaleString()}</div></div>
                             {cashRemaining < 10000 && <div className="text-[9px] text-red-400 absolute top-2 right-2 flex items-center"><AlertTriangle size={10}/> 補水!</div>}
                         </div>
-
                         <div className={`bg-[var(--bg-card)] border p-3 rounded relative flex flex-col justify-between ${icRemaining < 1000 ? 'border-red-500/50' : 'border-[var(--border-color)]'}`}>
-                            <div>
-                                <div className="flex items-center gap-2 text-[var(--text-muted)] mb-1"><ScanLine size={14}/> <span className="text-xs font-bold">IC 卡餘額</span></div>
-                                <div className={`text-lg font-bold font-mono ${icRemaining < 1000 ? 'text-red-500' : 'text-green-400'}`}>¥{icRemaining.toLocaleString()}</div>
-                            </div>
+                            <div><div className="flex items-center gap-2 text-[var(--text-muted)] mb-1"><ScanLine size={14}/> <span className="text-xs font-bold">IC 卡餘額</span></div><div className={`text-lg font-bold font-mono ${icRemaining < 1000 ? 'text-red-500' : 'text-green-400'}`}>¥{icRemaining.toLocaleString()}</div></div>
                         </div>
                     </div>
 
-                    {/* Simple Pie Chart */}
-                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded">
-                        <h3 className="font-bold text-[var(--text-main)] mb-2 flex justify-between items-center text-xs">
-                            <span className="flex gap-2"><PieChart size={14}/> 消費分佈</span>
-                        </h3>
-                        <SimplePieChart data={pieData} />
-                    </div>
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded"><h3 className="font-bold text-[var(--text-main)] mb-2 flex justify-between items-center text-xs"><span className="flex gap-2"><PieChart size={14}/> 消費分佈</span></h3><SimplePieChart data={pieData} /></div>
 
-                    <button onClick={() => setIsManagingFunds(true)} className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:bg-slate-700 text-[var(--text-muted)] py-2 rounded-lg text-xs font-bold mb-4 flex items-center justify-center gap-2 transition">
-                        <Activity size={14}/> 💰 資金調度 (儲值/提款)
-                    </button>
+                    <button onClick={() => setIsManagingFunds(true)} className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:bg-slate-700 text-[var(--text-muted)] py-2 rounded-lg text-xs font-bold mb-4 flex items-center justify-center gap-2 transition"><Activity size={14}/> 💰 資金調度與紀錄</button>
 
-                    {/* Settlement Dashboard */}
-                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-[var(--text-muted)]"><Calculator size={16}/> <span className="text-xs font-bold">結算中心</span></div>
-                        <div className="text-right">
-                            <div className="text-[10px] text-[var(--text-muted)]">目前代墊總額</div>
-                            <div className="text-lg font-bold text-green-400">+¥{myCredits.toLocaleString()}</div>
-                        </div>
-                    </div>
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded flex justify-between items-center"><div className="flex items-center gap-2 text-[var(--text-muted)]"><Calculator size={16}/> <span className="text-xs font-bold">結算中心 (代墊)</span></div><div className="text-right"><div className="text-[10px] text-[var(--text-muted)]">總額</div><div className="text-lg font-bold text-green-400">+¥{myCredits.toLocaleString()}</div></div></div>
 
-                    {/* Fund Management Modal */}
+                    {/* Fund Management Modal with History */}
                     {isManagingFunds && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in">
-                            <div className="bg-slate-900 border-2 border-blue-500 w-full max-w-sm rounded-xl p-5 shadow-2xl relative">
+                            <div className="bg-slate-900 border-2 border-blue-500 w-full max-w-sm rounded-xl p-5 shadow-2xl relative max-h-[85vh] overflow-y-auto">
                                 <button onClick={() => setIsManagingFunds(false)} className="absolute top-3 right-3 text-slate-500"><X size={20}/></button>
                                 <h3 className="text-blue-400 font-bold mb-4 flex items-center gap-2"><Banknote size={18}/> 資金管理</h3>
-                                
                                 <div className="flex gap-2 mb-4 bg-slate-800 p-1 rounded-lg">
                                     <button onClick={()=>setFundType('charge')} className={`flex-1 py-2 text-xs rounded-md transition ${fundType==='charge' ? 'bg-green-600 text-white font-bold' : 'text-slate-400'}`}>現金儲值IC</button>
                                     <button onClick={()=>setFundType('withdraw')} className={`flex-1 py-2 text-xs rounded-md transition ${fundType==='withdraw' ? 'bg-yellow-600 text-white font-bold' : 'text-slate-400'}`}>ATM提款</button>
                                     <button onClick={()=>setFundType('cc_charge')} className={`flex-1 py-2 text-xs rounded-md transition ${fundType==='cc_charge' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400'}`}>刷卡儲值</button>
                                 </div>
-
-                                <div className="mb-4">
-                                    <div className="text-xs text-slate-400 mb-2">
-                                        {fundType === 'charge' && "從「錢包現金」扣除，存入「IC 卡」。"}
-                                        {fundType === 'withdraw' && "從銀行領出，增加「錢包現金」。"}
-                                        {fundType === 'cc_charge' && "刷信用卡，直接增加「IC 卡」餘額。"}
-                                    </div>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white font-bold">¥</span>
-                                        <input type="number" value={fundAmount} onChange={e=>setFundAmount(e.target.value)} placeholder="輸入金額" className="w-full bg-slate-800 border-2 border-slate-600 rounded-lg py-3 pl-8 pr-4 text-white text-lg font-mono focus:border-blue-500 outline-none" autoFocus />
-                                    </div>
+                                <div className="mb-4 relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white font-bold">¥</span>
+                                    <input type="number" value={fundAmount} onChange={e=>setFundAmount(e.target.value)} placeholder="輸入金額" className="w-full bg-slate-800 border-2 border-slate-600 rounded-lg py-3 pl-8 pr-4 text-white text-lg font-mono focus:border-blue-500 outline-none" autoFocus />
                                 </div>
-
-                                <button onClick={handleFundUpdate} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">確認執行</button>
+                                <button onClick={handleFundUpdate} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition mb-6">確認執行</button>
+                                
+                                {/* History Section */}
+                                <h4 className="text-xs text-slate-400 font-bold mb-2 border-b border-slate-700 pb-1">最近資金流動紀錄 (History)</h4>
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                    {fundHistory.length === 0 ? <div className="text-[10px] text-slate-600 text-center py-2">無紀錄</div> : fundHistory.map(r => (
+                                        <div key={r.id} className="bg-slate-800 p-2 rounded flex justify-between items-center text-xs">
+                                            <div>
+                                                <div className={`font-bold ${r.type==='withdraw'?'text-yellow-400':r.type==='charge'?'text-green-400':'text-blue-400'}`}>{r.title}</div>
+                                                <div className="text-[9px] text-slate-500">{r.date}</div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-mono text-white">¥{r.amount.toLocaleString()}</span>
+                                                <button onClick={()=>deleteFundRecord(r)} className="text-slate-600 hover:text-red-400"><Trash2 size={12}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
 
                     <div className={`bg-[var(--bg-card)] border p-3 mb-4 rounded ${isEditingExpense ? 'border-blue-500' : 'border-[var(--border-color)]'}`}>
-                        <h3 className="font-bold text-[var(--text-main)] mb-2 flex justify-between items-center">
-                            <span className="flex gap-2"><CreditCard size={16}/> {isEditingExpense ? "編輯支出" : "新增支出"}</span>
-                            <div className="relative">
-                                <button onClick={()=>ocrInputRef.current.click()} className="text-[10px] bg-blue-600 px-2 py-1 rounded text-white flex items-center gap-1">
-                                    {isScanning ? <Loader2 size={10} className="animate-spin"/> : <ScanLine size={10}/>} AI 掃描
-                                </button>
-                                <input type="file" ref={ocrInputRef} onChange={handleOCR} accept="image/*" className="hidden"/>
-                            </div>
-                        </h3>
-                        
-                        {/* Optimized Category Selection */}
-                        <div className="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar">
-                            {EXPENSE_CATS.map(cat => {
-                                const Icon = cat.icon;
-                                const isActive = newExp.type === cat.id;
-                                return (
-                                    <button 
-                                        key={cat.id} 
-                                        onClick={()=>setNewExp({...newExp, type: cat.id})} 
-                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all whitespace-nowrap ${isActive ? cat.activeClass : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:bg-slate-700'}`}
-                                    >
-                                        <Icon size={14} />
-                                        {cat.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        
-                        {/* New Date Picker Field */}
-                        <div className="mb-2">
-                             <input type="date" value={newExp.date} onChange={e=>setNewExp({...newExp, date:e.target.value})} className="w-full bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]" />
-                        </div>
-
+                        <h3 className="font-bold text-[var(--text-main)] mb-2 flex justify-between items-center"><span className="flex gap-2"><CreditCard size={16}/> {isEditingExpense ? "編輯支出" : "新增支出"}</span><div className="relative"><button onClick={()=>ocrInputRef.current.click()} className="text-[10px] bg-blue-600 px-2 py-1 rounded text-white flex items-center gap-1">{isScanning ? <Loader2 size={10} className="animate-spin"/> : <ScanLine size={10}/>} AI 掃描</button><input type="file" ref={ocrInputRef} onChange={handleOCR} accept="image/*" className="hidden"/></div></h3>
+                        <div className="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar">{EXPENSE_CATS.map(cat => (<button key={cat.id} onClick={()=>setNewExp({...newExp, type: cat.id})} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all whitespace-nowrap ${newExp.type === cat.id ? cat.activeClass : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:bg-slate-700'}`}><cat.icon size={14} />{cat.label}</button>))}</div>
+                        <div className="mb-2"><input type="date" value={newExp.date} onChange={e=>setNewExp({...newExp, date:e.target.value})} className="w-full bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]" /></div>
                         <div className="flex flex-wrap gap-2 mb-2"><input type="text" placeholder="項目" value={newExp.item} onChange={e=>setNewExp({...newExp,item:e.target.value})} className="flex-[2] min-w-[120px] bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]"/><div className="flex-[1] flex border border-[var(--border-color)] rounded min-w-[110px]"><input type="number" placeholder="金額" value={newExp.cost} onChange={e=>setNewExp({...newExp,cost:e.target.value})} className="w-full bg-[var(--bg-input)] p-2 text-xs text-[var(--text-main)] outline-none"/><button onClick={()=>setNewExp({...newExp,currency:newExp.currency==='JPY'?'TWD':'JPY'})} className="px-2 bg-slate-700 text-[10px] text-white shrink-0">{newExp.currency}</button></div></div>
-                        <div className="flex justify-between items-center flex-wrap gap-2">
-                            <div className="flex gap-2">
-                                <select value={newExp.payer} onChange={e=>setNewExp({...newExp,payer:e.target.value})} className="bg-[var(--bg-input)] text-[var(--text-main)] text-xs rounded px-1"><option value="me">自用</option><option value="partner">代墊</option></select>
-                                <select value={newExp.method} onChange={e=>setNewExp({...newExp,method:e.target.value})} className="bg-[var(--bg-input)] text-[var(--text-main)] text-xs rounded px-1"><option value="cash">現金</option><option value="card">刷卡</option><option value="ic">IC卡</option></select>
-                            </div>
-                            <div>
-                                {isEditingExpense && <button onClick={()=>{setIsEditingExpense(false); setNewExp({ item: "", cost: "", type: "loot", method: "cash", payer: "me", date: new Date().toISOString().split('T')[0], currency: "JPY" });}} className="text-slate-500 text-xs mr-2">取消</button>}
-                                <button onClick={addOrUpdateExpense} className="bg-yellow-600 text-black px-4 py-1 rounded text-xs font-bold">{isEditingExpense ? "更新" : "紀錄"}</button>
-                            </div>
-                        </div>
+                        <div className="flex justify-between items-center flex-wrap gap-2"><div className="flex gap-2"><select value={newExp.payer} onChange={e=>setNewExp({...newExp,payer:e.target.value})} className="bg-[var(--bg-input)] text-[var(--text-main)] text-xs rounded px-1"><option value="me">自用</option><option value="partner">代墊</option></select><select value={newExp.method} onChange={e=>setNewExp({...newExp,method:e.target.value})} className="bg-[var(--bg-input)] text-[var(--text-main)] text-xs rounded px-1"><option value="cash">現金</option><option value="card">刷卡</option><option value="ic">IC卡</option></select></div><div>{isEditingExpense && <button onClick={()=>{setIsEditingExpense(false); setNewExp({ item: "", cost: "", type: "loot", method: "cash", payer: "me", date: new Date().toISOString().split('T')[0], currency: "JPY" });}} className="text-slate-500 text-xs mr-2">取消</button>}<button onClick={addOrUpdateExpense} className="bg-yellow-600 text-black px-4 py-1 rounded text-xs font-bold">{isEditingExpense ? "更新" : "紀錄"}</button></div></div>
                         {newExp.cost && newExp.currency==='TWD' && <div className="text-[10px] text-right text-slate-500 mt-1">≈ ¥{Math.round(newExp.cost/exchangeRate).toLocaleString()}</div>}
                     </div>
 
-                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded">
-                        <h3 className="font-bold text-pink-300 mb-2 flex gap-2"><ShoppingBag size={16}/> 必買清單 (Shopping)</h3>
-                        <div className="flex gap-2 mb-2"><input type="text" placeholder="新增商品..." value={newShopItem} onChange={e=>setNewShopItem(e.target.value)} className="flex-1 bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]"/><button onClick={addShopItem}><PlusCircle size={20} className="text-pink-400"/></button></div>
-                        <div className="space-y-1">{shoppingList.map(item=><div key={item.id} className={`flex items-center gap-2 p-2 rounded border border-[var(--border-color)] ${item.checked?'opacity-50 line-through bg-slate-900':'bg-[var(--bg-card)]'}`}><div onClick={()=>toggleShop(item.id)} className={`w-4 h-4 border ${item.checked?'bg-pink-500 border-pink-500':'border-slate-500'} rounded-sm flex items-center justify-center cursor-pointer`}>{item.checked&&<Check size={12} className="text-white"/>}</div><span className="flex-1 text-xs">{item.text}</span><button onClick={(e)=>{e.stopPropagation();deleteShopItem(item.id)}} className="text-red-400"><Trash2 size={12}/></button></div>)}</div>
-                    </div>
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded"><h3 className="font-bold text-pink-300 mb-2 flex gap-2"><ShoppingBag size={16}/> 必買清單 (Shopping)</h3><div className="flex gap-2 mb-2"><input type="text" placeholder="新增商品..." value={newShopItem} onChange={e=>setNewShopItem(e.target.value)} className="flex-1 bg-[var(--bg-input)] border-[var(--border-color)] p-2 text-xs rounded text-[var(--text-main)]"/><button onClick={addShopItem}><PlusCircle size={20} className="text-pink-400"/></button></div><div className="space-y-1">{shoppingList.map(item=><div key={item.id} className={`flex items-center gap-2 p-2 rounded border border-[var(--border-color)] ${item.checked?'opacity-50 line-through bg-slate-900':'bg-[var(--bg-card)]'}`}><div onClick={()=>toggleShop(item.id)} className={`w-4 h-4 border ${item.checked?'bg-pink-500 border-pink-500':'border-slate-500'} rounded-sm flex items-center justify-center cursor-pointer`}>{item.checked&&<Check size={12} className="text-white"/>}</div><span className="flex-1 text-xs">{item.text}</span><button onClick={(e)=>{e.stopPropagation();deleteShopItem(item.id)}} className="text-red-400"><Trash2 size={12}/></button></div>)}</div></div>
 
-                    <div className="space-y-1">
-                        {expenses.map(e => {
-                            const TypeIcon = EXPENSE_ICONS[e.type] || HelpCircle;
-                            return (
-                                <div key={e.id} onClick={() => editExpense(e)} className="flex justify-between items-center p-2 border-b border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-slate-700/50 transition cursor-pointer">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${e.type==='trade'?'bg-pink-900 text-pink-300':e.type==='loot'?'bg-yellow-900 text-yellow-300':e.type==='travel'?'bg-blue-900 text-blue-300':e.type==='save'?'bg-green-900 text-green-300':'bg-slate-700 text-slate-300'}`}>
-                                            <TypeIcon size={14} />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold">{e.item}</span>
-                                                <span className="text-[9px] text-[var(--text-muted)] bg-[var(--bg-input)] px-1 rounded">{e.date}</span>
-                                            </div>
-                                            <span className="text-[9px] text-[var(--text-muted)]">{e.payer==='partner'?'(代墊)':'(自用)'} · {e.method}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-mono font-bold">¥{e.cost.toLocaleString()}</span>
-                                        <button onClick={(ev)=>{ev.stopPropagation();deleteExpense(e.id)}} className="text-slate-600 hover:text-red-400"><Trash2 size={12}/></button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <div className="space-y-1">{expenses.map(e => { const TypeIcon = EXPENSE_ICONS[e.type] || HelpCircle; return (<div key={e.id} onClick={() => editExpense(e)} className="flex justify-between items-center p-2 border-b border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-slate-700/50 transition cursor-pointer"><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-full flex items-center justify-center ${e.type==='trade'?'bg-pink-900 text-pink-300':e.type==='loot'?'bg-yellow-900 text-yellow-300':e.type==='travel'?'bg-blue-900 text-blue-300':e.type==='save'?'bg-green-900 text-green-300':'bg-slate-700 text-slate-300'}`}><TypeIcon size={14} /></div><div className="flex flex-col"><div className="flex items-center gap-2"><span className="text-xs font-bold">{e.item}</span><span className="text-[9px] text-[var(--text-muted)] bg-[var(--bg-input)] px-1 rounded">{e.date}</span></div><span className="text-[9px] text-[var(--text-muted)]">{e.payer==='partner'?'(代墊)':'(自用)'} · {e.method}</span></div></div><div className="flex items-center gap-2"><span className="text-xs font-mono font-bold">¥{e.cost.toLocaleString()}</span><button onClick={(ev)=>{ev.stopPropagation();deleteExpense(e.id)}} className="text-slate-600 hover:text-red-400"><Trash2 size={12}/></button></div></div>);})}</div>
                 </div>
             );
         };
@@ -1664,33 +1505,22 @@
             const [countdown, setCountdown] = useState("");
             const [weatherForecast, setWeatherForecast] = useState({});
             const [weatherTemp, setWeatherTemp] = useState(15); 
-            const [isLightMode, setIsLightMode] = useState(false); // Outdoor Mode
+            const [isLightMode, setIsLightMode] = useState(false); 
 
             useEffect(() => {
                 const initAuth = async () => { 
-                    // Check URL for tripId sharing
                     const urlParams = new URLSearchParams(window.location.search);
                     const sharedTripId = urlParams.get('tripId');
                     if (sharedTripId) {
                         setTripId(sharedTripId);
                         localStorage.setItem('tripId', sharedTripId);
                     }
-
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } catch (e) {
-                            console.error("Custom token auth failed", e);
-                            if (USE_REAL_GOOGLE_AUTH) await signInWithPopup(getAuth(app), new GoogleAuthProvider()).catch(console.error);
-                            else await signInAnonymously(getAuth(app));
-                        }
-                    } else if (USE_REAL_GOOGLE_AUTH) {
-                        await signInAnonymously(getAuth(app)); 
-                    }
+                        try { await signInWithCustomToken(auth, __initial_auth_token); } 
+                        catch (e) { console.error("Auth Err", e); if (USE_REAL_GOOGLE_AUTH) await signInWithPopup(getAuth(app), new GoogleAuthProvider()).catch(console.error); else await signInAnonymously(getAuth(app)); }
+                    } else if (USE_REAL_GOOGLE_AUTH) { await signInAnonymously(getAuth(app)); }
                 };
-                
                 initAuth();
-
                 onAuthStateChanged(getAuth(app), u => { 
                     setUser(u); setAuthLoading(false); 
                     if(u && !tripId) { const tid = u.uid.substring(0,6); setTripId(tid); localStorage.setItem('tripId', tid); }
@@ -1703,19 +1533,16 @@
                     setWeatherForecast(map);
                 }).catch(console.error);
                 fetch('https://api.exchangerate-api.com/v4/latest/JPY').then(r=>r.json()).then(d=>setExchangeRate(d.rates.TWD)).catch(console.error);
-                // Real-time for InfoView
                 fetch('https://api.open-meteo.com/v1/forecast?latitude=35.1815&longitude=136.9066&current_weather=true').then(r=>r.json()).then(d=>{ if(d?.current_weather?.temperature) setWeatherTemp(d.current_weather.temperature); }).catch(console.log);
 
                 const targetDate = new Date('2026-03-02T16:45:00').getTime();
                 const interval = setInterval(() => {
-                    const now = new Date();
-                    const d = targetDate - now.getTime();
+                    const now = new Date(); const d = targetDate - now.getTime();
                     if(d<0) setCountdown("進行中"); else setCountdown(`${Math.floor(d/(1000*60*60*24))}天${Math.floor((d%(1000*60*60*24))/(1000*60*60))}時`);
                 }, 1000);
                 return () => clearInterval(interval);
             }, []);
 
-            // Firestore Data (using tripId) with offline fallback
             const [checklist, setChecklist, checklistOffline] = useFirestoreData(user, tripId, 'checklist', INITIAL_CHECKLIST);
             const [expenses, setExpenses, expensesOffline] = useFirestoreData(user, tripId, 'expenses', INITIAL_EXPENSES);
             const [quests, setQuests, questsOffline] = useFirestoreData(user, tripId, 'quests', INITIAL_QUEST_DATA);
@@ -1725,55 +1552,33 @@
             const [stamps, setStamps, stampsOffline] = useFirestoreData(user, tripId, 'guide_stamps', []);
             const [customSpells, setCustomSpells] = useFirestoreData(user, tripId, 'custom_spells', []);
             const [history, setHistory] = useFirestoreData(user, tripId, 'trans_history', []);
+            const [fundHistory, setFundHistory] = useFirestoreData(user, tripId, 'fund_history', []); // NEW: Fund History
             
-            const isOffline = checklistOffline || expensesOffline || questsOffline; // Global offline status
-
+            const isOffline = checklistOffline || expensesOffline || questsOffline;
             const budget = settingsData?.budget || 100000;
             const setBudget = (val) => updateSettings({ ...settingsData, budget: val });
             
-            // Dynamic Stats Calculation
             const stats = useMemo(() => {
-                let completedCount = 0;
-                let dayEvents = 0;
-                let dayCompleted = 0;
-                
-                quests.forEach((q, i) => {
-                    q.events.forEach(e => {
-                        if(e.completed) completedCount++;
-                        if(i === activeLevel) { dayEvents++; if(e.completed) dayCompleted++; }
-                    });
-                });
-
+                let completedCount = 0; let dayEvents = 0; let dayCompleted = 0;
+                quests.forEach((q, i) => { q.events.forEach(e => { if(e.completed) completedCount++; if(i === activeLevel) { dayEvents++; if(e.completed) dayCompleted++; } }); });
                 const totalSpent = expenses.reduce((a,c)=>a+c.cost,0);
-                
-                return {
-                    xp: completedCount * 150,
-                    goldRemaining: budget - totalSpent,
-                    fatigue: dayEvents > 0 ? Math.round((dayCompleted / dayEvents) * 100) : 0
-                };
+                return { xp: completedCount * 150, goldRemaining: budget - totalSpent, fatigue: dayEvents > 0 ? Math.round((dayCompleted / dayEvents) * 100) : 0 };
             }, [quests, expenses, budget, activeLevel]);
 
-            // Fix: Re-define speakJapanese inside Context correctly to capture 'text'
             const speakJapaneseFixed = useCallback((text) => {
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(text);
-                u.lang = 'ja-JP';
-                u.rate = 0.7; // 設定語速為 0.7
-                const voices = window.speechSynthesis.getVoices();
-                const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google 日本語') || v.name.includes('Microsoft Haruka'));
-                if (jpVoice) u.voice = jpVoice;
+                window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP'; u.rate = 0.7;
+                const voices = window.speechSynthesis.getVoices(); const jpVoice = voices.find(v => v.lang === 'ja-JP' || v.lang === 'ja_JP' || v.name.includes('Kyoko') || v.name.includes('Google')); if (jpVoice) u.voice = jpVoice;
                 window.speechSynthesis.speak(u);
             }, []);
 
-            // Re-create value object with fixed function
             const contextValueFixed = useMemo(() => ({
                  user, tripId, setTripId, checklist, setChecklist, expenses, setExpenses, quests, setQuests, budget, setBudget,
                  shoppingList, setShoppingList, tickets, setTickets, activeTab, setActiveTab, activeLevel, setActiveLevel, 
                  countdown, exchangeRate, weatherForecast, weatherTemp, speakJapanese: speakJapaneseFixed,
                  stats, isOffline, settingsData, updateSettings, stamps, setStamps, customSpells, setCustomSpells, history, setHistory,
+                 fundHistory, setFundHistory, // NEW
                  isLightMode, setIsLightMode
-            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp, speakJapaneseFixed, stats, isOffline, settingsData, updateSettings, stamps, customSpells, history, isLightMode]);
-
+            }), [user, tripId, checklist, expenses, quests, shoppingList, tickets, budget, activeTab, activeLevel, countdown, exchangeRate, weatherForecast, weatherTemp, speakJapaneseFixed, stats, isOffline, settingsData, updateSettings, stamps, customSpells, history, isLightMode, fundHistory]);
 
             if (authLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white"><Loader2 className="animate-spin text-yellow-500" size={40}/></div>;
             if (!user) return <LoginView onLogin={() => signInWithPopup(getAuth(app), new GoogleAuthProvider())} />;
