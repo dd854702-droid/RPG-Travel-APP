@@ -5,15 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>名古屋冒險日誌 | Nagoya Adventure Log</title>
     
+    <!-- PWA Manifest -->
     <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoi5ZCN5Y+qk9aF6ZqquZzmXlSIsInNob3J0X25hbWUiOiLlgpLpmprljp8iLCJzdGFydF91cmwiOiIuLyIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwZjE3MmEiLCJ0aGVtZV9jb2xvciI6IiMwZjE3MmEiLCJpY29ucyI6W3sic3JjIjoiaHR0cHM6Ly9jZG4tanRpZmYtY29tLnRpbnlwaXguY29tL3VwbG9hZHMvMjAyMy0xMS0wNy9jbHVlc19tYXBfMTI4eDEyOC5wbmciLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ==">
     <meta name="theme-color" content="#0f172a">
     
+    <!-- 1. Performance Optimization -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://esm.sh">
     <link rel="preconnect" href="https://www.gstatic.com">
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     
+    <!-- 2. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -28,8 +31,10 @@
         }
     </script>
     
+    <!-- 3. Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
 
+    <!-- 4. Import Map -->
     <script type="importmap">
     {
         "imports": {
@@ -45,6 +50,7 @@
     }
     </script>
 
+    <!-- 5. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -330,8 +336,23 @@
         };
 
         // --- Hook with Offline Support & LocalStorage Backup ---
+        // OPTIMIZED: Lazy init to prevent data reset on refresh
         function useFirestoreData(user, tripId, collectionName, initialData, isObject = false) {
-            const [data, setData] = useState(initialData);
+            const [data, setData] = useState(() => {
+                if (tripId) {
+                    const localKey = `${tripId}_${collectionName}`;
+                    const cached = localStorage.getItem(localKey);
+                    if (cached) {
+                        try {
+                            return JSON.parse(cached);
+                        } catch (e) {
+                            console.error("Local load parse error", e);
+                        }
+                    }
+                }
+                return initialData;
+            });
+            
             const [isOffline, setIsOffline] = useState(false);
 
             // 1. Force load from localStorage whenever key changes (Fix for persistence issue)
@@ -345,9 +366,6 @@
                     } catch (e) {
                         console.error("Local load error", e);
                     }
-                } else {
-                    // If strictly no local data for this user, we might want to default to initialData
-                    // But if initialData is empty array, it's fine.
                 }
             }, [tripId, collectionName]);
 
@@ -402,6 +420,56 @@
             };
             return [data, updateData, isOffline];
         }
+
+        // --- Pie Chart Component ---
+        const SimplePieChart = ({ data }) => {
+            const total = data.reduce((acc, cur) => acc + cur.value, 0);
+            if (total === 0) return <div className="text-center text-xs text-gray-500 py-4">尚無消費數據</div>;
+
+            let startAngle = 0;
+            const radius = 50;
+            const cx = 50;
+            const cy = 50;
+
+            return (
+                <div className="flex items-center gap-4 py-2 justify-center">
+                    <svg viewBox="0 0 100 100" className="w-24 h-24 transform -rotate-90 flex-shrink-0">
+                        {data.map((entry, index) => {
+                            if (entry.value === 0) return null;
+                            const angle = (entry.value / total) * 360;
+                            const endAngle = startAngle + angle;
+                            
+                            // Conversions
+                            const x1 = cx + radius * Math.cos(Math.PI * startAngle / 180);
+                            const y1 = cy + radius * Math.sin(Math.PI * startAngle / 180);
+                            const x2 = cx + radius * Math.cos(Math.PI * endAngle / 180);
+                            const y2 = cy + radius * Math.sin(Math.PI * endAngle / 180);
+                            
+                            const largeArcFlag = angle > 180 ? 1 : 0;
+                            
+                            const pathData = Math.abs(total - entry.value) < 0.01
+                                ? `M ${cx} ${cy - radius} A ${radius} ${radius} 0 1 1 ${cx} ${cy + radius} A ${radius} ${radius} 0 1 1 ${cx} ${cy - radius}` // Full circle
+                                : `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+
+                            const path = <path key={index} d={pathData} fill={entry.color} stroke="var(--bg-card)" strokeWidth="1" />;
+                            startAngle = endAngle;
+                            return path;
+                        })}
+                    </svg>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                        {data.map((entry, index) => (
+                            entry.value > 0 && (
+                                <div key={index} className="flex items-center gap-1.5 text-[10px]">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                                    <span className="text-[var(--text-muted)] truncate max-w-[60px]">{entry.name}</span>
+                                    <span className="font-mono text-[var(--text-main)]">{(entry.value/total*100).toFixed(0)}%</span>
+                                </div>
+                            )
+                        ))}
+                    </div>
+                </div>
+            );
+        };
 
         // --- SUB-COMPONENTS ---
         const LoginView = ({ onLogin }) => (
@@ -725,14 +793,36 @@
             
             const ocrInputRef = useRef(null);
 
-            // Expense Category Configuration
+            // Expense Category Configuration & Colors
             const EXPENSE_CATS = [
-                { id: 'loot', label: '美食', icon: Utensils, activeClass: 'bg-yellow-600 border-yellow-500 text-white ring-2 ring-yellow-500/20' },
-                { id: 'travel', label: '交通', icon: Train, activeClass: 'bg-blue-600 border-blue-500 text-white ring-2 ring-blue-500/20' },
-                { id: 'trade', label: '購物', icon: ShoppingBag, activeClass: 'bg-pink-600 border-pink-500 text-white ring-2 ring-pink-500/20' },
-                { id: 'save', label: '住宿', icon: Home, activeClass: 'bg-green-600 border-green-500 text-white ring-2 ring-green-500/20' },
-                { id: 'other', label: '其他', icon: HelpCircle, activeClass: 'bg-slate-600 border-slate-500 text-white ring-2 ring-slate-500/20' }
+                { id: 'loot', label: '美食', icon: Utensils, activeClass: 'bg-yellow-600 border-yellow-500 text-white ring-2 ring-yellow-500/20', color: '#ca8a04' },
+                { id: 'travel', label: '交通', icon: Train, activeClass: 'bg-blue-600 border-blue-500 text-white ring-2 ring-blue-500/20', color: '#2563eb' },
+                { id: 'trade', label: '購物', icon: ShoppingBag, activeClass: 'bg-pink-600 border-pink-500 text-white ring-2 ring-pink-500/20', color: '#db2777' },
+                { id: 'save', label: '住宿', icon: Home, activeClass: 'bg-green-600 border-green-500 text-white ring-2 ring-green-500/20', color: '#16a34a' },
+                { id: 'other', label: '其他', icon: HelpCircle, activeClass: 'bg-slate-600 border-slate-500 text-white ring-2 ring-slate-500/20', color: '#475569' }
             ];
+
+            // Prepare Data for Pie Chart
+            const pieData = useMemo(() => {
+                const grouped = EXPENSE_CATS.map(cat => ({
+                    name: cat.label,
+                    value: 0,
+                    color: cat.color
+                }));
+                
+                expenses.forEach(e => {
+                    const catIndex = EXPENSE_CATS.findIndex(c => c.id === e.type);
+                    if (catIndex > -1) {
+                        grouped[catIndex].value += e.cost;
+                    } else {
+                        // fallback to other if type not found
+                        const otherIndex = EXPENSE_CATS.findIndex(c => c.id === 'other');
+                        if(otherIndex > -1) grouped[otherIndex].value += e.cost;
+                    }
+                });
+                
+                return grouped.filter(g => g.value > 0);
+            }, [expenses]);
 
             const cashBudget = settingsData?.cashBudget || 50000;
             const icBudget = settingsData?.icBudget || 3000; 
@@ -923,6 +1013,14 @@
                                 <div className={`text-lg font-bold font-mono ${icRemaining < 1000 ? 'text-red-500' : 'text-green-400'}`}>¥{icRemaining.toLocaleString()}</div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Simple Pie Chart */}
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-3 mb-4 rounded">
+                        <h3 className="font-bold text-[var(--text-main)] mb-2 flex justify-between items-center text-xs">
+                            <span className="flex gap-2"><PieChart size={14}/> 消費分佈</span>
+                        </h3>
+                        <SimplePieChart data={pieData} />
                     </div>
 
                     <button onClick={() => setIsManagingFunds(true)} className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] hover:bg-slate-700 text-[var(--text-muted)] py-2 rounded-lg text-xs font-bold mb-4 flex items-center justify-center gap-2 transition">
