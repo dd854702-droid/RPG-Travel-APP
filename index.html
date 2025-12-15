@@ -384,15 +384,37 @@
                     setIsOffline(docSnap.metadata.fromCache);
                     if (docSnap.exists()) {
                         const cloudData = isObject ? docSnap.data() : docSnap.data().items;
+                        // Keep cloud and local in sync
                         setData(cloudData);
                         localStorage.setItem(`${tripId}_${collectionName}`, JSON.stringify(cloudData)); 
                     } else {
-                        // First time creation: Save initialData to Cloud
-                        setDoc(docRef, isObject ? initialData : { items: initialData }).catch(e => console.error("Init data failed", e));
+                        // CRITICAL FIX: If doc doesn't exist, check local storage first before using initialData
+                        // This prevents wiping data if connection glitches or first sync fails
+                        const localKey = `${tripId}_${collectionName}`;
+                        const cached = localStorage.getItem(localKey);
+                        let dataToSave = initialData;
+                        
+                        if (cached) {
+                            try {
+                                const parsed = JSON.parse(cached);
+                                if (parsed) {
+                                    console.log(`Restoring ${collectionName} from local storage to cloud`);
+                                    dataToSave = parsed;
+                                    // Update state immediately to reflect local data while saving
+                                    setData(dataToSave); 
+                                }
+                            } catch (e) {
+                                console.error("Local load error during init", e);
+                            }
+                        }
+
+                        // Save to Cloud (either recovered local data or initial data)
+                        setDoc(docRef, isObject ? dataToSave : { items: dataToSave }).catch(e => console.error("Init data failed", e));
                     }
                 }, (error) => {
                     console.error(`Offline or Error fetching ${collectionName}:`, error);
                     setIsOffline(true);
+                    // On error, we rely on the data already loaded from localStorage in useEffect #1
                 });
                 return () => unsubscribe();
             }, [user, tripId, collectionName]);
