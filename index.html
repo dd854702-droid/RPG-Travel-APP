@@ -215,13 +215,13 @@
                 title: "序章: 降落與潛入",
                 date: "2026-03-02",
                 events: [
-                { id: 'e0', time: "16:45", icon: "Plane", title: "啟程: 桃園機場", desc: "搭乘虎航 IT778 (16:45-20:25)", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
-                { id: 'e1', time: "20:25", icon: "MapPin", title: "抵達新地圖", desc: "中部國際機場 T2", type: "checkpoint", transportTime: "3h 40m", transportCost: 0, transportMode: "Plane", completed: false },
+                { id: 'e0', time: "16:45", icon: "Plane", title: "啟程: 桃園機場", desc: "搭乘虎航 IT778 (16:45-20:25)", type: "start", note: "💡 提示：建議提前 2.5 小時抵達機場辦理登機。", transportTime: "", transportCost: 0, transportMode: "", completed: false },
+                { id: 'e1', time: "20:25", icon: "MapPin", title: "抵達新地圖", desc: "中部國際機場 T2", type: "checkpoint", note: "📢 提示：二航廈需步行較遠，跟著紅線指標前往一航廈搭車。", transportTime: "3h 40m", transportCost: 0, transportMode: "Plane", completed: false },
                 { id: 'e2', time: "21:15", icon: "Footprints", title: "穿越通道", desc: "前往交通廣場", type: "move", transportTime: "15m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e3', time: "21:37", icon: "Train", title: "搭乘名鐵特急", desc: "往名古屋/岐阜方向", type: "travel", transportTime: "10m", transportCost: 1250, transportMode: "Train", completed: false },
+                { id: 'e3', time: "21:37", icon: "Train", title: "搭乘名鐵特急", desc: "往名古屋/岐阜方向", type: "travel", note: "🎫 提示：售票機可買指定席 (u-SKY) 或一般特急車票。", transportTime: "10m", transportCost: 1250, transportMode: "Train", completed: false },
                 { id: 'e4', time: "22:08", icon: "MapPin", title: "抵達金山站", desc: "關鍵轉乘點", type: "checkpoint", transportTime: "31m", transportCost: 0, transportMode: "Train", completed: false },
                 { id: 'e5', time: "22:23", icon: "Train", title: "轉乘地下鐵", desc: "名城線 (右環) 往榮/大曾根方向", type: "travel", transportTime: "15m", transportCost: 210, transportMode: "Train", completed: false },
-                { id: 'e6', time: "22:45", icon: "Home", title: "存檔點: Hotel Wing 名古屋榮", desc: "辦理入住 (ホテルウィングインターナショナルセレクト名古屋栄)", type: "save", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false },
+                { id: 'e6', time: "22:45", icon: "Home", title: "存檔點: Hotel Wing 名古屋榮", desc: "辦理入住", type: "save", note: "🔑 提示：飯店附近有 LAWSON，可先補給藥水 (水、零食)。", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false },
                 ]
             },
             {
@@ -229,14 +229,14 @@
                 title: "第一章: 市場與神殿",
                 date: "2026-03-03",
                 events: [
-                { id: 'e11', time: "08:00", icon: "Home", title: "冒險開始", desc: "從 Hotel Wing 名古屋榮 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
-                { id: 'e12', time: "08:45", icon: "Utensils", title: "柳橋中央市場", desc: "補給: 生魚片、海鮮巡禮", type: "loot", transportTime: "30m", transportCost: 210, transportMode: "Train", completed: false },
-                { id: 'e12_5', time: "10:15", icon: "ShoppingBag", title: "JR Gate Tower", desc: "吉卜力共和國(1F)、BicCamera(9F)、Uniqlo", type: "trade", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e13', time: "12:00", icon: "Utensils", title: "午餐: 鳥開総本家", desc: "獲得物品: 金賞親子丼 (位於 Gate Tower 12F)", type: "loot", transportTime: "0m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e14', time: "13:30", icon: "ShoppingBag", title: "大須商店街", desc: "交易與探索 (約2小時)", type: "action", transportTime: "20m", transportCost: 210, transportMode: "Train", completed: false },
+                { id: 'e11', time: "08:00", icon: "Home", title: "冒險開始", desc: "從 Hotel Wing 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
+                { id: 'e12', time: "08:45", icon: "Utensils", title: "柳橋中央市場", desc: "補給: 生魚片、海鮮巡禮", type: "loot", note: "🍣 提示：市場週日及部分週三休市，請務必確認日期。", transportTime: "30m", transportCost: 210, transportMode: "Train", completed: false },
+                { id: 'e12_5', time: "10:15", icon: "ShoppingBag", title: "JR Gate Tower", desc: "吉卜力共和國、BicCamera", type: "trade", note: "📦 提示：BicCamera 9F-10F 滿額可退稅，記得帶護照。", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false },
+                { id: 'e13', time: "12:00", icon: "Utensils", title: "午餐: 鳥開総本家", desc: "獲得物品: 金賞親子丼", type: "loot", transportTime: "0m", transportCost: 0, transportMode: "Footprints", completed: false },
+                { id: 'e14', time: "13:30", icon: "ShoppingBag", title: "大須商店街", desc: "交易與探索", type: "action", note: "🏘️ 提示：Alice on Wednesday 就在這，入口非常矮小要注意！", transportTime: "20m", transportCost: 210, transportMode: "Train", completed: false },
                 { id: 'e15', time: "15:30", icon: "Coffee", title: "下午茶: Konparu", desc: "補給: 炸蝦三明治", type: "heal", transportTime: "5m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e16', time: "18:30", icon: "Utensils", title: "晚餐: 熱田蓬萊軒", desc: "挑戰傳說美食: 鰻魚飯三吃", type: "boss", transportTime: "30m", transportCost: 270, transportMode: "Train", completed: false },
-                { id: 'e17', time: "20:30", icon: "Home", title: "返回據點", desc: "回到 Hotel Wing 名古屋榮 休息", type: "save", transportTime: "30m", transportCost: 270, transportMode: "Train", completed: false },
+                { id: 'e16', time: "18:30", icon: "Utensils", title: "晚餐: 熱田蓬萊軒", desc: "挑戰: 鰻魚飯三吃", type: "boss", note: "🍱 提示：這家是魔王級排隊店，建議先去領取入場時段券。", transportTime: "30m", transportCost: 270, transportMode: "Train", completed: false },
+                { id: 'e17', time: "20:30", icon: "Home", title: "返回據點", desc: "回到飯店休息", type: "save", transportTime: "30m", transportCost: 270, transportMode: "Train", completed: false },
                 ]
             },
             {
@@ -244,28 +244,28 @@
                 title: "第二章: 古城與咖啡",
                 date: "2026-03-04",
                 events: [
-                { id: 'e20', time: "07:45", icon: "Home", title: "早安名古屋", desc: "從 Hotel Wing 名古屋榮 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
-                { id: 'e21', time: "08:00", icon: "Coffee", title: "早餐: Q.O.L. COFFEE", desc: "補給: 自家烘焙精品咖啡與早午餐", type: "heal", transportTime: "15m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e22', time: "10:00", icon: "MapPin", title: "犬山城攻略", desc: "國寶天守閣 (門票 ¥550)", type: "dungeon", transportTime: "50m", transportCost: 600, transportMode: "Train", completed: false },
+                { id: 'e20', time: "07:45", icon: "Home", title: "早安名古屋", desc: "從 Hotel Wing 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
+                { id: 'e21', time: "08:00", icon: "Coffee", title: "早餐: Q.O.L. COFFEE", desc: "補給: 自家烘焙咖啡", type: "heal", transportTime: "15m", transportCost: 0, transportMode: "Footprints", completed: false },
+                { id: 'e22', time: "10:00", icon: "MapPin", title: "犬山城攻略", desc: "國寶天守閣", type: "dungeon", note: "🏰 提示：樓梯極度陡峭，建議將行李寄存在車站，輕裝上陣。", transportTime: "50m", transportCost: 600, transportMode: "Train", completed: false },
                 { id: 'e23', time: "12:30", icon: "Utensils", title: "午餐: Sakura Chaya", desc: "獲得物品: 田樂烤豆腐串", type: "loot", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e24', time: "15:00", icon: "Coffee", title: "GOLPIE COFFEE", desc: "川名山冠軍咖啡巡禮", type: "action", transportTime: "1h 20m", transportCost: 800, transportMode: "Train", completed: false },
-                { id: 'e25', time: "18:00", icon: "Utensils", title: "Solo Pizza", desc: "大須本店 (世界冠軍披薩)", type: "loot", transportTime: "30m", transportCost: 240, transportMode: "Train", completed: false },
-                { id: 'e26', time: "20:00", icon: "Home", title: "返回據點", desc: "回到 Hotel Wing 名古屋榮 休息", type: "save", transportTime: "20m", transportCost: 210, transportMode: "Train", completed: false },
+                { id: 'e24', time: "15:00", icon: "Coffee", title: "GOLPIE COFFEE", desc: "川名山冠軍咖啡", type: "action", note: "☕ 提示：這是日本烘豆大賽冠軍店，豆子很值得當伴手禮。", transportTime: "1h 20m", transportCost: 800, transportMode: "Train", completed: false },
+                { id: 'e25', time: "18:00", icon: "Utensils", title: "Solo Pizza", desc: "世界冠軍披薩", type: "loot", transportTime: "30m", transportCost: 240, transportMode: "Train", completed: false },
+                { id: 'e26', time: "20:00", icon: "Home", title: "返回據點", desc: "回到飯店休息", type: "save", transportTime: "20m", transportCost: 210, transportMode: "Train", completed: false },
                 ]
             },
-           {
+            {
                 day: 3,
                 title: "第三章: 將軍的榮耀",
                 date: "2026-03-05",
                 events: [
-                    { id: 'e30', time: "07:45", icon: "Home", title: "早安名古屋", desc: "從 Hotel Wing 名古屋榮 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
+                    { id: 'e30', time: "07:45", icon: "Home", title: "早安名古屋", desc: "從 Hotel Wing 出發", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
                     { id: 'e31', time: "08:00", icon: "Coffee", title: "早餐: 咖啡處 Karasu", desc: "補給: 孤獨的美食家朝聖", type: "heal", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false },
-                    { id: 'e32', time: "10:00", icon: "Castle", title: "名城巡禮: 名古屋城", desc: "任務: 參觀本丸御殿 (金箔壁畫)", type: "dungeon", transportTime: "20m", transportCost: 240, transportMode: "Train", completed: false },
-                    { id: 'e33', time: "12:30", icon: "Trees", title: "庭園散策: 德川園", desc: "任務: 諸侯池泉回遊式大名庭園", type: "side", transportTime: "20m", transportCost: 210, transportMode: "Bus", completed: false },
-                    { id: 'e34', time: "14:30", icon: "Utensils", title: "輕食/咖啡: Yellow (則武新町)", desc: "補給: 絕美 TSUTAYA 書牆與甜點", type: "loot", transportTime: "30m", transportCost: 210, transportMode: "Bus", completed: false },
-                    { id: 'e35', time: "16:30", icon: "ShoppingBag", title: "榮商圈購物", desc: "任務: Parco, Sunshine Sakae 採買", type: "trade", transportTime: "20m", transportCost: 210, transportMode: "Train", completed: false },
-                    { id: 'e36', time: "19:00", icon: "Utensils", title: "晚餐: 海老どて (Esca)", desc: "挑戰: 35cm 特大炸蝦", type: "boss", transportTime: "15m", transportCost: 210, transportMode: "Train", completed: false },
-                    { id: 'e37', time: "21:00", icon: "Home", title: "返回據點", desc: "回到 Hotel Wing 名古屋榮 休息", type: "save", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false }
+                    { id: 'e32', time: "10:00", icon: "Castle", title: "名城巡禮: 名古屋城", desc: "任務: 參觀本丸御殿", type: "dungeon", note: "📢 提示：天守閣維修中不開放，重點看金碧輝煌的本丸御殿壁畫。", transportTime: "20m", transportCost: 240, transportMode: "Train", completed: false },
+                    { id: 'e33', time: "12:30", icon: "Trees", title: "庭園散策: 德川園", desc: "任務: 大名庭園", type: "side", transportTime: "20m", transportCost: 210, transportMode: "Bus", completed: false },
+                    { id: 'e34', time: "14:30", icon: "Utensils", title: "輕食: Yellow (則武新町)", desc: "補給: 絕美 TSUTAYA 書牆", type: "loot", note: "📸 提示：網美書牆在 2 樓，拍照時請勿打擾閱讀者並保持低音量。", transportTime: "30m", transportCost: 210, transportMode: "Bus", completed: false },
+                    { id: 'e35', time: "16:30", icon: "ShoppingBag", title: "榮商圈購物", desc: "任務: Parco, 中日大樓", type: "trade", transportTime: "20m", transportCost: 210, transportMode: "Train", completed: false },
+                    { id: 'e36', time: "19:00", icon: "Utensils", title: "晚餐: 海老どて (Esca)", desc: "挑戰: 35cm 特大炸蝦", type: "boss", note: "🍤 提示：位於名站地下街 Esca，吃飽可以順便買名產小倉吐司抹醬。", transportTime: "15m", transportCost: 210, transportMode: "Train", completed: false },
+                    { id: 'e37', time: "21:00", icon: "Home", title: "返回據點", desc: "回到飯店休息", type: "save", transportTime: "10m", transportCost: 0, transportMode: "Footprints", completed: false }
                 ]
             },
             {
@@ -273,13 +273,13 @@
                 title: "終章: 歸途",
                 date: "2026-03-06",
                 events: [
-                { id: 'e41', time: "09:40", icon: "Home", title: "旅店退房", desc: "告別 Hotel Wing 名古屋榮，前往機場", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
-                { id: 'e42', time: "09:50", icon: "Train", title: "地下鐵移動", desc: "榮 (H13/M05) -> 金山 (M01)", type: "travel", transportTime: "10m", transportCost: 210, transportMode: "Train", completed: false },
-                { id: 'e43', time: "10:18", icon: "Train", title: "名鐵特急 μ-SKY", desc: "金山站 -> 中部國際機場", type: "travel", transportTime: "28m", transportCost: 1250, transportMode: "Train", completed: false },
+                { id: 'e41', time: "09:40", icon: "Home", title: "旅店退房", desc: "告別飯店，前往機場", type: "start", transportTime: "", transportCost: 0, transportMode: "", completed: false },
+                { id: 'e42', time: "09:50", icon: "Train", title: "地下鐵移動", desc: "榮 -> 金山", type: "travel", transportTime: "10m", transportCost: 210, transportMode: "Train", completed: false },
+                { id: 'e43', time: "10:18", icon: "Train", title: "名鐵特急 μ-SKY", desc: "金山站 -> 機場", type: "travel", transportTime: "28m", transportCost: 1250, transportMode: "Train", completed: false },
                 { id: 'e44', time: "10:50", icon: "MapPin", title: "抵達機場 T1", desc: "前往交通廣場", type: "checkpoint", transportTime: "5m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e45', time: "11:05", icon: "Footprints", title: "步行至 T2", desc: "長距離移動 (10-15分)", type: "move", transportTime: "15m", transportCost: 0, transportMode: "Footprints", completed: false },
-                { id: 'e46', time: "11:05", icon: "Plane", title: "報到 & 託運", desc: "虎航櫃檯 IT779 (13:15 起飛)", type: "action", transportTime: "0m", transportCost: 0, transportMode: "", completed: false },
-                { id: 'e47', time: "13:15", icon: "Plane", title: "返航: IT779", desc: "飛往桃園機場 (13:15-15:25)", type: "travel", transportTime: "", transportCost: 0, transportMode: "Plane", completed: false },
+                { id: 'e45', time: "11:05", icon: "Footprints", title: "步行至 T2", desc: "長距離移動", type: "move", note: "🏃 提示：從一航走至二航需 10-15 分鐘，請留足夠時間避免趕機。", transportTime: "15m", transportCost: 0, transportMode: "Footprints", completed: false },
+                { id: 'e46', time: "11:05", icon: "Plane", title: "報到 & 託運", desc: "虎航櫃檯 IT779", type: "action", transportTime: "0m", transportCost: 0, transportMode: "", completed: false },
+                { id: 'e47', time: "13:15", icon: "Plane", title: "返航: IT779", desc: "飛往桃園機場", type: "travel", transportTime: "", transportCost: 0, transportMode: "Plane", completed: false },
                 { id: 'e48', time: "15:25", icon: "Home", title: "Mission Complete", desc: "抵達桃園機場，任務結束", type: "end", transportTime: "3h 10m", transportCost: 0, transportMode: "Plane", completed: false },
                 ]
             }
